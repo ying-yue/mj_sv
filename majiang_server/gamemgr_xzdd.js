@@ -4619,7 +4619,7 @@ exports.guo = function(userId){
     let doNothing = game.chuPai == -1 && game.turn == seatIndex;
 
     userMgr.sendMsg(seatData.userId,"guo_result");
-    clearAllOptions(game,seatData);
+
 
 
     if(seatData.canGangTing){
