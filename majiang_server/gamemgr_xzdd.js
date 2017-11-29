@@ -453,10 +453,10 @@ function checkCanHu(game,seatData,targetPai) {
         return;
     }
 
-    // 손에 동서남북 혹은 백발중중 등이 있으면 먼저 깡을 해야 후 할수 있다.
-    if(checkIsExistingFengpaiOrSanyuanpai(seatData)){
-        return
-    }
+    // // 손에 동서남북 혹은 백발중중 등이 있으면 먼저 깡을 해야 후 할수 있다.
+    // if(checkIsExistingFengpaiOrSanyuanpai(seatData)){
+    //     return
+    // }
 
     if(!seatData.tinged){
         checkCanTingOrHuCondition(seatData);
@@ -1933,7 +1933,10 @@ function doUserMoPai(game){
 
     checkCanAnGang(game,turnSeat);
     checkCanJiaGang(game,turnSeat,pai);
-    checkCanGangTongSeNanBeiAndGangBaiBalZung(turnSeat, pai);
+
+    if(!turnSeat.tinged && !turnSeat.gangTinged){
+        checkCanGangTongSeNanBeiAndGangBaiBalZung(turnSeat, pai);
+    }
 
     if(turnSeat.tinged || turnSeat.hued){
 
@@ -1996,9 +1999,10 @@ function doUserMoPai(game){
         return;
     }
     else{
-        if(!checkIsExistingFengpaiOrSanyuanpai(turnSeat)){
-            checkCanTingOrHuCondition(turnSeat);
-        }
+        checkCanTingOrHuCondition(turnSeat);
+        // if(!checkIsExistingFengpaiOrSanyuanpai(turnSeat)){
+        //     checkCanTingOrHuCondition(turnSeat);
+        // }
     }
 
 
