@@ -79,7 +79,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 		|| roomConf.qidui4 == null
         || roomConf.qidui8 == null
 		|| roomConf.yise == null
-		|| roomConf.tinghoefeigang == null
+		|| roomConf.tinghoufeigang == null
         // || roomConf.budaipihu == null
         // || roomConf.budaichi == null
         || roomConf.bubaibalzhung == null){
@@ -155,7 +155,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
                             qidui8:roomConf.qidui8,
                             yise:roomConf.yise,
                             gangfen:roomConf.gangfen,
-                            tinghoefeigang:roomConf.tinghoufeigang,
+                            tinghoufeigang:roomConf.tinghoufeigang,
                             // budaipihu:roomConf.budaipihu,
                             // budaichi:roomConf.budaichi,
                             bubaibalzhung:roomConf.bubaibalzhung,

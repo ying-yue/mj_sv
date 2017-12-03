@@ -217,6 +217,20 @@ exports.start = function(config,mgr){
             socket.gameMgr.ting_client(socket.userId, data);
         });
 
+        socket.on('ting_client_piao',function(data){
+            if(socket.userId == null){
+                return;
+            }
+            socket.gameMgr.ting_client_piao(socket.userId, data);
+        });
+
+        socket.on('ting_client_yise',function(data){
+            if(socket.userId == null){
+                return;
+            }
+            socket.gameMgr.ting_client_yise(socket.userId, data);
+        });
+
         socket.on('ting_pai_client',function(data){
             if(socket.userId == null){
                 return;
