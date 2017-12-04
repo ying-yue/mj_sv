@@ -3112,7 +3112,7 @@ exports.begin = function(roomId) {
         //
         data.actions = [];
 
-        data.fan = 0;
+        data.fan = 1;
 
         if(Object.keys(roomLevelScore).length > 0){
             data.score = roomLevelScore[data.userId];
