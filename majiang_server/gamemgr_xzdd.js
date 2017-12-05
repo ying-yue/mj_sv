@@ -21,6 +21,7 @@ let ACTION_GANGTINGED = 55;
 let ACTION_PIAO_TINGED = 66;
 let ACTION_YISE_TING = 77;
 let ACTION_YISE_TINGED = 88;
+let ACTION_YISE_GANGFORGANGTING = 99;
 
 
 
@@ -652,7 +653,7 @@ function checkTingCondition(seatData){
     }
 
     for(let p of seatData.wangangs){
-        let inPai = getMahjongType(parseInt(p), seatData.game);
+        let inPai = getMahjongType(parseInt(p.pai), seatData.game);
         switch (inPai) {
             case 0:
                 isExistingWan = true;
@@ -930,34 +931,64 @@ function guoHu(game, seatData){
     }
 }
 
-function calcScoreByBaibalzhungSanwanpaiGang(game, seatData){
-    let base_score = game.conf.baseScore;
+function calcSelfFan(seatData, otherSeat) {
+    let game = seatData.game;
+    //원래 기초점수가 2이므로 이 점수는 핑쟈의 점수이다. 즉 쫭에 대하여서는 2배해주어야 한다.
+    let jangFan = 1;
+    if(seatData.seatIndex == game.button || otherSeat.seatIndex == game.button){
+        jangFan = 2;
+    }
 
-    let n = 0;
-    // let gameActionListLength = game.actionList.length;
-    // while (true){
-    //     n += 3;
-    //     if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
-    //         game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
-    //
-    //         n += 3;
-    //         if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
-    //             (game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
-    //             game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
-    //             game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI )){
-    //             base_score *= 2;
-    //         }
-    //         else {
-    //             break;
-    //         }
-    //     }
-    //     else {
-    //         break;
-    //     }
-    //
-    // }
+    let selfFan = 0;
+    // 여기서는 사용자들이 팅을 하였을때 조건을 따진다. 즉 두 사용자가 다같이 이써팅을 하였다면 높은 점수를 따른다.
+    // 하지만 서로 다른 종류의 팅일때는 서로 곱해주어야 한다.
+    //커팅과 일반깡팅일때도 높은 점수를 취한다.
+    if((seatData.hunYiseTinged || seatData.qingYiseTinged) && (otherSeat.hunYiseTinged || otherSeat.qingYiseTinged)){
+        if(otherSeat.self_fan >= seatData.self_fan){
+            selfFan = otherSeat.self_fan;
+        }
+        else{
+            selfFan = seatData.self_fan;
+        }
+    }
+    else if((seatData.tinged || seatData.gangTinged) && (otherSeat.tinged || otherSeat.gangTinged)) {
+        selfFan = 2;
+    }
+    else{
+        selfFan = otherSeat.self_fan * seatData.self_fan;
+    }
+    selfFan *= jangFan;
+
+    return selfFan;
+}
+
+function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
+    // 이것은 련속적인 깡을 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
+    // 이것을 검사하기 위하여 action의 배렬을 검사한다.
 
     let fan = 1;
+    let n = 0;
+
+    let gameActionListLength = game.actionList.length;
+    n += 3;
+    //먼저 정말 마지막에 뜬 패로 깡을 하였는가를 검사
+    if(gangPais.indexOf(seatData.holds[seatData.holds.length - 1].toString()) != -1){
+        //다음 실지로 모파이를 하였는가를 검사
+        if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+            game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
+
+            n += 3;
+            // 다음 모파이를 하기전에 실지로 깡을 하였는가를 검사.
+            if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+                (game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI )){
+                fan *= 2;
+            }
+        }
+    }
+
+    /////////////////////////////////////////////////////////
 
     if(game.conf.hongdian && game.dice_paly_result){
         fan = 2;
@@ -970,14 +1001,9 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData){
             continue;
         }
 
-        let selfFan = 0;
-        if(otherSeat.self_fan >= seatData.self_fan){
-            selfFan = otherSeat.self_fan;
-        }
-        else{
-            selfFan = seatData.self_fan;
-        }
-        
+        let selfFan = calcSelfFan(seatData, otherSeat);
+
+        //실지 점수의 계산.
         let score = game.basic_score * selfFan * fan;
         otherSeat.score -= score;
         otherSeat.levelScore -= score;
@@ -1018,7 +1044,7 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData){
     for(let seat of game.gameSeats){
         resultScores.push(seat.score);
     }
-    // userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
+    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
 }
 
 function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTing) {
@@ -1062,7 +1088,7 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
                 }
             }
             for(let p of seatData.wangangs){
-                if(parseInt(p) >= seatData.game.DongID && parseInt(p) < seatData.game.SanWenPaiStartID + 3){
+                if(parseInt(p) >= seatData.game.DongID && parseInt(p.pai) < seatData.game.SanWenPaiStartID + 3){
                     isExisting = true;
                 }
             }
@@ -1164,7 +1190,7 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     return flag;
 }
 
-function checkYise(seatData, isExistingPing, isExistingTiao, isExistingWan, isExistingOneOrNine) {
+function checkYise(seatData, isExistingPing, isExistingTiao, isExistingWan, isExistingOneOrNine, isExistingFeng) {
     let flag= false;
     if(seatData.qingYiseTinged || seatData.hunYiseTinged){
         return true;
@@ -1189,64 +1215,71 @@ function checkYise(seatData, isExistingPing, isExistingTiao, isExistingWan, isEx
         isExistingTiao = true;
     }
     if(flag){
-        for(let p of seatData.pengs){
-            if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
+        if(!isExistingFeng){
+            for(let p of seatData.pengs){
+                if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
+                    if(seatData.seatIndex == seatData.game.turn){
+                        seatData.canQingYiseTing = true;
+                    }
+
+                    return true;
+                }
+            }
+
+            for(let p of seatData.angangs){
+                if(parseInt(p) >= parseInt(seatData.game.DongID) ){
+                    if(seatData.seatIndex == seatData.game.turn){
+                        seatData.canQingYiseTing = true;
+                    }
+                    return true;
+                }
+            }
+
+            for(let p of seatData.diangangs){
+                if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
+                    if(seatData.seatIndex == seatData.game.turn){
+                        seatData.canQingYiseTing = true;
+                    }
+                    return true;
+                }
+            }
+
+            for(let p of seatData.wangangs){
+                if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
+                    if(seatData.seatIndex == seatData.game.turn){
+                        seatData.canQingYiseTing = true;
+                    }
+                    return true;
+                }
+            }
+
+            if(seatData.gang_tongnansebeis.length > 0 || seatData.gang_baibalzungs.length > 0){
                 if(seatData.seatIndex == seatData.game.turn){
                     seatData.canQingYiseTing = true;
                 }
-
                 return true;
             }
-        }
 
-        for(let p of seatData.angangs){
-            if(parseInt(p) >= parseInt(seatData.game.DongID) ){
+            for(let pp of seatData.holds){
+                if(parseInt(pp) >= parseInt(seatData.game.DongID) ){
+                    if(seatData.seatIndex == seatData.game.turn){
+                        seatData.canQingYiseTing = true;
+                    }
+                    return true;
+                }
+            }
+            if(!seatData.canQingYiseTing){
                 if(seatData.seatIndex == seatData.game.turn){
-                    seatData.canQingYiseTing = true;
+                    seatData.canHunYiseTing = true;
                 }
                 return true;
             }
         }
-
-        for(let p of seatData.diangangs){
-            if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
-                if(seatData.seatIndex == seatData.game.turn){
-                    seatData.canQingYiseTing = true;
-                }
-                return true;
-            }
-        }
-
-        for(let p of seatData.wangangs){
-            if(parseInt(p.pai) >= parseInt(seatData.game.DongID) ){
-                if(seatData.seatIndex == seatData.game.turn){
-                    seatData.canQingYiseTing = true;
-                }
-                return true;
-            }
-        }
-
-        if(seatData.gang_tongnansebeis.length > 0 || seatData.gang_baibalzungs.length > 0){
-            if(seatData.seatIndex == seatData.game.turn){
-                seatData.canQingYiseTing = true;
-            }
+        else{
+            seatData.canQingYiseTing = true;
             return true;
         }
 
-        for(let pp of seatData.holds){
-            if(parseInt(pp) >= parseInt(seatData.game.DongID) ){
-                if(seatData.seatIndex == seatData.game.turn){
-                    seatData.canQingYiseTing = true;
-                }
-                return true;
-            }
-        }
-        if(!seatData.canQingYiseTing){
-            if(seatData.seatIndex == seatData.game.turn){
-                seatData.canHunYiseTing = true;
-            }
-            return true;
-        }
     }
 
     return flag;
@@ -1761,9 +1794,9 @@ function checkCanGangTing(seatData) {
     seatData.gnagTinged = false;
     seatData.paisAvailableGangTing = [];
 
-    if(seatData.holds.length != 14){
-        return;
-    }
+    // if(seatData.holds.length != 14){
+    //     return;
+    // }
     seatData.tingMap = {};
 
 
@@ -1776,20 +1809,28 @@ function checkCanGangTing(seatData) {
     let avalablePais = [];
     let paisAvailableTing = [];
 
+    let isExistingFeng = false;
+
     if(seatData.canGang){
         let latestGangPai = seatData.gangPai[seatData.gangPai.length - 1];
         if(seatData.countMap[latestGangPai] == 4){
             avalablePais.push([latestGangPai, latestGangPai, latestGangPai, latestGangPai]);
+            if(parseInt(latestGangPai) >= parseInt(game.DongID)){
+                isExistingFeng = true;
+            }
         }
     }
     if(seatData.canGangBaiBalZung){
         for(let ps of seatData.paisAvailableGangBaibalzung){
             avalablePais.push(ps);
         }
+
+        isExistingFeng = true;
     }
 
     if(seatData.canGangTongnansebei){
         avalablePais.push([game.DongID, game.NanID, game.SeID, game.BeiID]);
+        isExistingFeng = true;
     }
 
     Logger.log(`pais available gangting- ${avalablePais}`, roomId);
@@ -1843,14 +1884,17 @@ function checkCanGangTing(seatData) {
                 if (checkParams.isExistingPing && checkParams.isExistingTiao && checkParams.isExistingWan && checkParams.isExistingOneOrNine) {
                     availableCondition = true;
                 }
-                else if (seatData.game.conf.yise && checkYise(seatData, checkParams.isExistingPing, checkParams.isExistingTiao, checkParams.isExistingWan, checkParams.isExistingOneOrNine)) {
+                else if (seatData.game.conf.yise && checkYise(seatData, checkParams.isExistingPing, checkParams.isExistingTiao, checkParams.isExistingWan, checkParams.isExistingOneOrNine, isExistingFeng)) {
                     availableCondition = true;
                 }
             }
 
-            // if(availableCondition){
-            //     paisAvailableTing.push(k);
-            // }
+            if(availableCondition){
+                for(let kk in seatData.tingMap){
+                    seatData.availableTingMap[kk] = seatData.tingMap[kk];
+                }
+
+            }
 
         }
 
@@ -1865,6 +1909,17 @@ function checkCanGangTing(seatData) {
             seatData.holds.push(parseInt(p));
         }
     }
+
+    if(!(seatData.canHunYiseTing || seatData.canQingYiseTing || seatData.canPiaoTing)){
+        if(seatData.holds.length != 14){
+            seatData.canGangTing = false;
+            seatData.gnagTinged = false;
+            seatData.paisAvailableGangTing = [];
+            seatData.tingMap = {};
+        }
+    }
+
+
 
 
 }
@@ -3180,13 +3235,15 @@ exports.begin = function(roomId) {
 
         //
         data.actions = [];
+
+        data.self_fan = 1;
         
-        if(game.button == i){
-            data.self_fan = 2;
-        }
-        else{
-            data.self_fan = 1;
-        }
+        // if(game.button == i){
+        //     data.self_fan = 2;
+        // }
+        // else{
+        //     data.self_fan = 1;
+        // }
 
         
 
@@ -3410,7 +3467,7 @@ exports.dice_start = function(userId){
         diceUserList[roomId] = [];
         diceNumberList1[roomId] = [];
         diceNumberList2[roomId] = [];
-        LevelScore[roomId] = {};
+        // LevelScore[roomId] = {};
     }
 
     if(dicePlayed[roomId]){
@@ -3678,7 +3735,6 @@ exports.chuPai = function(userId,pai){
     let isExistingShunzi  = false;
     let seatIndexWithPengOrGang = null;
 
-    Logger.log(`Checking whether some user can do 'peng' or 'gang'. current seat index: ${seatData.seatIndex}`, roomId);
     for(let i = 0; i < game.gameSeats.length; ++i) {
         //玩家自己不检查
         if (game.turn == i) {
@@ -3693,24 +3749,62 @@ exports.chuPai = function(userId,pai){
         ddd.holds.push(parseInt(pai));
         ddd.countMap[pai]++;
 
-        checkCanHu(game,ddd,pai);
-        if(!ddd.canHu){
+        checkCanHu(game, ddd, pai);
+        if (!ddd.canHu) {
             ddd.canTing = false;
         }
-        else{
+        else {
             ddd.holds.splice(ddd.holds.indexOf(pai), 1);
             ddd.countMap[pai]--;
             Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
-            userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
+            userMgr.broacastInRoom('guo_notify_push', {
+                userId: seatData.userId,
+                pai: game.chuPai
+            }, seatData.userId, true);
             seatData.folds.push(game.chuPai);
 
-            sendOperations(game,ddd,game.chuPai);
+            sendOperations(game, ddd, game.chuPai);
             return;
 
         }
 
         ddd.holds.splice(ddd.holds.indexOf(pai), 1);
         ddd.countMap[pai]--;
+    }
+
+    Logger.log(`Checking whether some user can do 'peng' or 'gang'. current seat index: ${seatData.seatIndex}`, roomId);
+    for(let i = 0; i < game.gameSeats.length; ++i) {
+        //玩家自己不检查
+        if (game.turn == i) {
+            continue;
+        }
+        let ddd = game.gameSeats[i];
+        //已经和牌的不再检查
+        if (ddd.hued) {
+            continue;
+        }
+
+        // ddd.holds.push(parseInt(pai));
+        // ddd.countMap[pai]++;
+        //
+        // checkCanHu(game,ddd,pai);
+        // if(!ddd.canHu){
+        //     ddd.canTing = false;
+        // }
+        // else{
+        //     ddd.holds.splice(ddd.holds.indexOf(pai), 1);
+        //     ddd.countMap[pai]--;
+        //     Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
+        //     userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
+        //     seatData.folds.push(game.chuPai);
+        //
+        //     sendOperations(game,ddd,game.chuPai);
+        //     return;
+        //
+        // }
+        //
+        // ddd.holds.splice(ddd.holds.indexOf(pai), 1);
+        // ddd.countMap[pai]--;
 
 
         checkCanPeng(game,ddd,pai);
@@ -3861,10 +3955,8 @@ exports.gang_ting = function(userId, data) {
         }
     }
 
-    clearAllOptions(game);
-    seatData.self_fan *= 2;
 
-    calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData);
+
 
     //进行碰牌处理  카드를 수행하려면
     //扣掉手上的牌  카드의 손을 낸다.
@@ -3906,24 +3998,50 @@ exports.gang_ting = function(userId, data) {
     seatData.gangTinged = true;
     seatData.canTing = false;
     seatData.paisGangTinged = resultPais;
+    seatData.tingMap = seatData.availableTingMap;
 
     if(seatData.canHunYiseTing){
         seatData.canHunYiseTing = false;
         seatData.hunYiseTinged = true;
+        seatData.tinged = false;
+        seatData.gangTinged = false;
     }
     else if(seatData.canQingYiseTing){
         seatData.canQingYiseTing = false;
         seatData.qingYiseTinged = true;
+        seatData.tinged = false;
+        seatData.gangTinged = false;
     }
 
     if(seatData.canPiaoTing){
         seatData.canPiaoTing = false;
         seatData.piaoTinged = true;
+        seatData.tinged = false;
+        seatData.gangTinged = false;
     }
+    clearAllOptions(game);
 
     recordGameAction(game,seatData.seatIndex, ACTION_GANGTINGED, [resultPais, [seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]]);
 
+    if(seatData.hunYiseTinged){
+        seatData.self_fan *= 2;
+    }
+    else if(seatData.qingYiseTinged){
+        seatData.self_fan *= 4;
+    }
+    if(seatData.piaoTinged || (!seatData.hunYiseTinged && !seatData.qingYiseTinged && !seatData.piaoTinged)){
+        seatData.self_fan *= 2;
+    }
 
+    if(seatData.holds.length == 1){
+        seatData.self_fan *= 2;
+    }
+
+
+
+
+
+    calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData, resultPais);
 
     userMgr.broacastInRoom('gangtinged_notify_push',{userid:seatData.userId,resultPais: resultPais, yisePiaoTings:[seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]},seatData.userId,true);
     //
@@ -3948,7 +4066,7 @@ exports.gang_baibalzung = function(userId, data) {
         return;
     }
 
-    calcScoreByBaibalzhungSanwanpaiGang(game, seatData);
+
 
     // //깡을 한 사람이 짱일때 점수를 2배로 해주고 나머지 사람들에게 2배씩 덜어준다.
     // if(game.button == seatData.seatIndex){
@@ -4005,6 +4123,8 @@ exports.gang_baibalzung = function(userId, data) {
         resultPais = data['data'];
     }
 
+    calcScoreByBaibalzhungSanwanpaiGang(game, seatData, resultPais);
+
     for(let i = 0; i < 4; ++i){
         let index = seatData.holds.indexOf(parseInt(resultPais[i]));
         if(index == -1){
@@ -4046,7 +4166,7 @@ exports.gang_tongnansebei = function(userId, data) {
         return;
     }
 
-    calcScoreByBaibalzhungSanwanpaiGang(game, seatData);
+    calcScoreByBaibalzhungSanwanpaiGang(game, seatData, [game.DongID, game.NanID, game.SeID, game.BeiID]);
 
     //如果有人可以胡牌，则需要等待  누군가가 나쁜 카드를 만들 수 있다면 기다려야합니다.
     let i = game.turn;
@@ -4190,18 +4310,22 @@ exports.ting_pai_client = function(userId, data) {
         
         if(seatData.hunYiseTinged){
             seatData.self_fan *= 2;
-            if( seatData.holds.length == 14){
-                seatData.self_fan *= 2;
-            }
+            // if( seatData.holds.length == 14){
+            //     seatData.self_fan *= 2;
+            // }
         }
         else if(seatData.qingYiseTinged){
             seatData.self_fan *= 4;
-            if( seatData.holds.length == 14){
-                seatData.self_fan *= 2;
-            }
+            // if( seatData.holds.length == 14){
+            //     seatData.self_fan *= 2;
+            // }
         }
         
         if(seatData.piaoTinged){
+            seatData.self_fan *= 2;
+        }
+
+        if(seatData.holds.length == 2 || seatData.holds.length == 14){
             seatData.self_fan *= 2;
         }
 
@@ -4225,6 +4349,10 @@ exports.ting_pai_client = function(userId, data) {
         seatData.self_fan *= 4;
     }
     else{
+        seatData.self_fan *= 2;
+    }
+
+    if(seatData.holds.length == 2){
         seatData.self_fan *= 2;
     }
     
@@ -4595,7 +4723,32 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
 
 
 
+    // 이것은 련속적인 깡을 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
+    // 이것을 검사하기 위하여 action의 배렬을 검사한다.
+
     let fen = 1;
+    let n = 0;
+
+    let gameActionListLength = game.actionList.length;
+    n += 3;
+    //먼저 뜬패로 깡을 하였는가를 검사한다.
+    if(parseInt(seatData.gangPai[seatData.gangPai.length - 1]) == parseInt(seatData.holds[seatData.holds.length - 1])){
+        //다음 깡을 하기전에 실지로 모파이를 하였는가를 검사한다.
+        if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+            game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
+
+            n += 3;
+            //다음 모파이를 하기전에 깡을 하였는가를 검사한다.
+            if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+                (game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI )){
+                fen *= 2;
+            }
+        }
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////
+
     if(parseInt(seatData.gangPai[seatData.gangPai.length - 1]) >= parseInt(game.SanWenPaiStartID) ||
         parseInt(seatData.gangPai[seatData.gangPai.length - 1]) == parseInt(game.WanStartID) ||
         parseInt(seatData.gangPai[seatData.gangPai.length - 1]) == parseInt(game.PingStartID) ||
@@ -4615,13 +4768,9 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
                 continue;
             }
 
-            let selfFan = 0;
-            if(otherSeat.self_fan >= seatData.self_fan){
-                selfFan = otherSeat.self_fan;
-            }
-            else{
-                selfFan = seatData.self_fan;
-            }
+            let selfFan = calcSelfFan(seatData, otherSeat);
+
+            //실지 점수의 계산.
 
             score = game.basic_score * selfFan * fen;
             otherSeat.score -= score;
@@ -4634,13 +4783,9 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
     else if(gangtype == 'wangang'){
         let otherSeat = game.gameSeats[seatIndexToOutPengPai];
 
-        let selfFan = 0;
-        if(otherSeat.self_fan >= seatData.self_fan){
-            selfFan = otherSeat.self_fan;
-        }
-        else{
-            selfFan = seatData.self_fan;
-        }
+        let selfFan = calcSelfFan(seatData, otherSeat);
+
+        //실지 점수의 계산.
         score = game.basic_score * selfFan * fen;
 
         otherSeat.score -= score;
@@ -4650,14 +4795,9 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         seatData.levelScore += score;
     }
     else{
+        let selfFan = calcSelfFan(seatData, turnSeat);
 
-        let selfFan = 0;
-        if(turnSeat.self_fan >= seatData.self_fan){
-            selfFan = turnSeat.self_fan;
-        }
-        else{
-            selfFan = seatData.self_fan;
-        }
+        //실지 점수의 계산.
         score = game.basic_score * selfFan * fen;
 
         turnSeat.score -= score;
@@ -4764,7 +4904,7 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
     for(let seat of game.gameSeats){
         resultScores.push(seat.score);
     }
-    // userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
+    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
 
 
 
@@ -4957,10 +5097,12 @@ exports.gang = function(userId,pai){
     //如果是弯杠，则需要检查是否可以抢杠
     let turnSeat = game.gameSeats[game.turn];
     if(numOfCnt == 1){
-        let canQiangGang = checkCanQiangGang(game,turnSeat,seatData,pai);
-        if(canQiangGang){
-            return;
-        }
+
+        // 일단 qianGang에 대한 기능을 막았다.
+        // let canQiangGang = checkCanQiangGang(game,turnSeat,seatData,pai);
+        // if(canQiangGang){
+        //     return;
+        // }
     }
 
     doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai);
@@ -5173,6 +5315,43 @@ exports.hu = function(userId){
             fan *= 8;
         }
 
+        if(game.chuPai != -1){
+            if(seatData.countMap[game.chuPai] == 4){
+                fan *= 2;
+            }
+
+            for(let kk in seatData.countMap){
+                if(seatData.countMap[kk] == 4){
+                    if(parseInt(kk) != parseInt(game.chuPai)){
+                        fan *= 2;
+                    }
+                }
+            }
+        }
+        else{
+            if(seatData.countMap[seatData.holds[seatData.holds.length - 1]] == 4){
+                fan *= 2;
+            }
+
+            for(let kk in seatData.countMap){
+                if(seatData.countMap[kk] == 4){
+                    if(parseInt(kk) != parseInt(seatData.holds[seatData.holds.length - 1])){
+                        fan *= 2;
+                    }
+                }
+            }
+        }
+
+
+
+        for(let kk in seatData.countMap){
+            if(seatData.countMap[kk] == 4){
+                if(parseInt(kk) != parseInt(seatData.holds[seatData.holds.length - 1])){
+                    fan *= 2;
+                }
+            }
+        }
+
     }
 
     if(game.mahjongs.length - game.currentIndex <= 4){
@@ -5182,6 +5361,30 @@ exports.hu = function(userId){
     if(game.conf.hongdian && game.dice_paly_result){
         fan *= 2;
     }
+
+    // 이것은 깡이나 깡팅을 한다음 후를 하였는가를 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
+    // 이것을 검사하기 위하여 action의 배렬을 검사한다. 이런 경우는 쯔모일때만 가능.
+    if(isZimo){
+        let n = 0;
+
+        let gameActionListLength = game.actionList.length;
+        n += 6;
+        //다음 실지로 모파이를 하였는가를 검사
+        if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+            game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
+
+            n += 3;
+            // 다음 모파이를 하기전에 실지로 깡을 하였는가를 검사.
+            if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
+                (game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI ||
+                game.actionList[gameActionListLength - n + 1] == ACTION_GANGTINGED)){
+                fan *= 2;
+            }
+        }
+    }
+    /////////////////////////////////////////////////////////
 
 
 
@@ -5196,13 +5399,9 @@ exports.hu = function(userId){
                 continue;
             }
 
-            let selfFan = 0;
-            if(otherSeat.self_fan >= seatData.self_fan){
-                selfFan = otherSeat.self_fan;
-            }
-            else{
-                selfFan = seatData.self_fan;
-            }
+            let selfFan = calcSelfFan(seatData, otherSeat);
+
+            //실지 점수의 계산.
 
             let score = game.basic_score * selfFan * fan;
             otherSeat.score -= score;
@@ -5215,13 +5414,9 @@ exports.hu = function(userId){
     else{
         let otherSeat = game.gameSeats[game.turn];
 
-        let selfFan = 0;
-        if(otherSeat.self_fan >= seatData.self_fan){
-            selfFan = otherSeat.self_fan;
-        }
-        else{
-            selfFan = seatData.self_fan;
-        }
+        let selfFan = calcSelfFan(seatData, otherSeat);
+
+        //실지 점수의 계산.
 
         let score = game.basic_score * selfFan * fan;
 
