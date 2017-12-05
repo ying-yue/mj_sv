@@ -2304,12 +2304,18 @@ function doUserMoPai(game){
             for(let k in turnSeat.tingMap) {
                 if (turnSeat.tingMap.hasOwnProperty(k)) {
                     let canGangAfterTing = false;
-                    for(let gangP of turnSeat.tingMap[k].arrayPengForPiaoHu){
-                        if(gangP == pai){
-                            canGangAfterTing = true;
-                            break;
+                    if(!turnSeat.piaoTinged){
+                        for(let gangP of turnSeat.tingMap[k].arrayPengForPiaoHu){
+                            if(gangP == pai){
+                                canGangAfterTing = true;
+                                break;
+                            }
                         }
                     }
+                    else{
+                        canGangAfterTing = true;
+                    }
+
                     if(!canGangAfterTing){
                         turnSeat.canGang = false;
                         turnSeat.gangPai.pop();
