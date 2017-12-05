@@ -1031,6 +1031,10 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     let pengCount = seatData.pengs.length;
     let isExisting = false;
 
+    if(isCanGangTing){
+        pengCount++;
+    }
+
     if(seatData.tingMap[targetPai] && seatData.tingMap[targetPai].pattern == "7pairs"){
         return true;
     }
@@ -3902,11 +3906,26 @@ exports.gang_ting = function(userId, data) {
     seatData.gangTinged = true;
     seatData.canTing = false;
     seatData.paisGangTinged = resultPais;
-    recordGameAction(game,seatData.seatIndex, ACTION_GANGTINGED, resultPais);
+
+    if(seatData.canHunYiseTing){
+        seatData.canHunYiseTing = false;
+        seatData.hunYiseTinged = true;
+    }
+    else if(seatData.canQingYiseTing){
+        seatData.canQingYiseTing = false;
+        seatData.qingYiseTinged = true;
+    }
+
+    if(seatData.canPiaoTing){
+        seatData.canPiaoTing = false;
+        seatData.piaoTinged = true;
+    }
+
+    recordGameAction(game,seatData.seatIndex, ACTION_GANGTINGED, [resultPais, [seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]]);
 
 
 
-    userMgr.broacastInRoom('gangtinged_notify_push',{userid:seatData.userId,resultPais: resultPais},seatData.userId,true);
+    userMgr.broacastInRoom('gangtinged_notify_push',{userid:seatData.userId,resultPais: resultPais, yisePiaoTings:[seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]},seatData.userId,true);
     //
     seatData.canChuPai = false;
     setTimeout(function(){
