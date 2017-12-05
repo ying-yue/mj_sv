@@ -1910,7 +1910,7 @@ function checkCanGangTing(seatData) {
         }
     }
 
-    if(!(seatData.canHunYiseTing || seatData.canQingYiseTing || seatData.canPiaoTing)){
+    if(!seatData.canHunYiseTing && !seatData.canQingYiseTing && !seatData.canPiaoTing){
         if(seatData.holds.length != 14){
             seatData.canGangTing = false;
             seatData.gnagTinged = false;
@@ -4521,9 +4521,18 @@ exports.shunzi = function(userId, data) {
     checkCanJiaGang(game, seatData);
     checkCanGangTongSeNanBeiAndGangBaiBalZung(seatData);
 
+    // 우선 깡팅을 할수 있는가를 검사한다.
+    checkCanGangTing(seatData);
+
+    if(hasOperations(seatData)){
+        sendOperations(game, seatData, game.chuPai);
+        moveToNextUser(game,seatData.seatIndex);
+        return;
+    }
+    ///////////////////////////////////
+
 
     checkCanTingOrHuCondition(seatData);
-
 
     if(hasOperations(seatData)){
         sendOperations(game, seatData, game.chuPai);
@@ -4636,16 +4645,25 @@ exports.peng = function(userId){
 
     moveToNextUser(game,seatData.seatIndex);
 
-    checkCanTingOrHuCondition(seatData);
-
-
+    // 우선 깡팅을 할수 있는가를 검사한다.
+    checkCanGangTing(seatData);
 
     if(hasOperations(seatData)){
         sendOperations(game, seatData, game.chuPai);
         moveToNextUser(game,seatData.seatIndex);
         return;
     }
+    ///////////////////////////////////
 
+    /// 다음에 일반 커팅을 할수 있는가를 검사.
+    checkCanTingOrHuCondition(seatData);
+
+    if(hasOperations(seatData)){
+        sendOperations(game, seatData, game.chuPai);
+        moveToNextUser(game,seatData.seatIndex);
+        return;
+    }
+    //////////////////////////////////////////////
 
 
 
