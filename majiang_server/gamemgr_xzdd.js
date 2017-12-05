@@ -1047,7 +1047,7 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
     userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
 }
 
-function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTing) {
+function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTing, isExistingFeng) {
     //seatData의 countMap에 targetPai를 추가
     // seatData.countMap[targetPai]++;
     if(!seatData.game.conf.piaohu){
@@ -1055,7 +1055,7 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     }
 
     let pengCount = seatData.pengs.length;
-    let isExisting = false;
+    let isExisting = isExistingFeng;
 
     if(isCanGangTing){
         pengCount++;
@@ -1861,7 +1861,7 @@ function checkCanGangTing(seatData) {
             }
             seatData.countMap[kk]++;
 
-            let fff = checkCanHuForPeng4(seatData, kk, seatData.tingMap[kk], null, true);
+            let fff = checkCanHuForPeng4(seatData, kk, null, true, isExistingFeng);
             seatData.countMap[kk]--;
 
             if(!fff){
