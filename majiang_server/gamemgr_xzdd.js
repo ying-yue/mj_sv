@@ -515,11 +515,15 @@ function checkCanHu(game,seatData,targetPai) {
 
 
                             if(seatData.canHu){
+                                let pattern = "hu";
+                                if(data && data.pattern){
+                                    pattern = data.pattern;
+                                }
                                 seatData.tingMap = {};
                                 seatData.tingMap[targetPai] = {
                                     fan:5,
                                     arrayPengForPiaoHu: data.arrayPengForPiaoHu,
-                                    pattern:"hu"
+                                    pattern:pattern
                                 };
                             }
 
@@ -581,11 +585,15 @@ function checkCanHu(game,seatData,targetPai) {
 
 
                 if(seatData.canHu){
+                    let pattern = "hu";
+                    if(seatData.tingMap[targetPai] && seatData.tingMap[targetPai].pattern){
+                        pattern = seatData.tingMap[targetPai].pattern;
+                    }
                     seatData.tingMap = {};
                     seatData.tingMap[targetPai] = {
                         fan:5,
                         arrayPengForPiaoHu: [],
-                        pattern:"hu"
+                        pattern:pattern
                     };
                 }
 
@@ -1745,11 +1753,15 @@ function checkCanTingOrHuCondition(seatData) {
                     if(!seatData.canPiaoTing){
                         seatData.canHu = true;
                         seatData.canTing = false;
+                        let pattern = "hu";
+                        if(seatData.availableTingMap[removeKey][k]){
+                            pattern = seatData.availableTingMap[removeKey][k].pattern;
+                        }
                         seatData.tingMap = {};
                         seatData.tingMap[k] = {
                             fan:5,
                             arrayPengForPiaoHu: map1.arrayPengForPiaoHu,
-                            pattern:"hu"
+                            pattern:pattern
                         };
                     }
 
@@ -2736,8 +2748,11 @@ function doGameOver(game,userId,forceEnd, isZimo){
             else if(sd.gangTinged){
                 tingType = 1;
             }
-            else if((sd.qingYiseTinged || sd.hunYiseTinged) && sd.piaoTinged){
+            else if(sd.hunYiseTinged && sd.piaoTinged){
                 tingType = 5;
+            }
+            else if(sd.qingYiseTinged && sd.piaoTinged){
+                tingType = 6;
             }
             else if(sd.hunYiseTinged){
                 tingType = 2;
@@ -4122,7 +4137,7 @@ exports.gang_ting = function(userId, data) {
     }
     clearAllOptions(game);
 
-    calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData, resultPais);
+
 
     recordGameAction(game,seatData.seatIndex, ACTION_GANGTINGED, [resultPais, [seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]]);
 
@@ -4140,7 +4155,7 @@ exports.gang_ting = function(userId, data) {
         seatData.self_fan *= 2;
     }
 
-
+    calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData, resultPais);
 
 
 
@@ -4451,11 +4466,11 @@ exports.ting_pai_client = function(userId, data) {
     if(seatData.piaoTinged && seatData.holds.length == 14){
         seatData.self_fan *= 4;
     }
-    else{
+    else if(seatData.tinged){
         seatData.self_fan *= 2;
     }
 
-    if(seatData.holds.length == 2){
+    if(seatData.holds.length == 2 && (seatData.piaoTinged || seatData.tinged)){
         seatData.self_fan *= 2;
     }
     
@@ -4618,6 +4633,8 @@ exports.shunzi = function(userId, data) {
     checkCanJiaGang(game, seatData);
     checkCanGangTongSeNanBeiAndGangBaiBalZung(seatData);
 
+    moveToNextUser(game,seatData.seatIndex);
+
     // 우선 깡팅을 할수 있는가를 검사한다.
     checkCanGangTing(seatData);
 
@@ -4637,7 +4654,7 @@ exports.shunzi = function(userId, data) {
         return;
     }
 
-    moveToNextUser(game,seatData.seatIndex);
+
     // checkCanTingOrHuCondition(seatData);
     // if(seatData.canTing || seatData.canHu){
     //     if (hasOperations(seatData)) {
@@ -4747,7 +4764,6 @@ exports.peng = function(userId){
 
     if(hasOperations(seatData)){
         sendOperations(game, seatData, game.chuPai);
-        moveToNextUser(game,seatData.seatIndex);
         return;
     }
     ///////////////////////////////////
@@ -4757,7 +4773,6 @@ exports.peng = function(userId){
 
     if(hasOperations(seatData)){
         sendOperations(game, seatData, game.chuPai);
-        moveToNextUser(game,seatData.seatIndex);
         return;
     }
     //////////////////////////////////////////////
