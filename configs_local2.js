@@ -1,4 +1,4 @@
-﻿// let HALL_IP = "192.168.1.46";
+﻿// let HALL_IP = "192.168.1.47";
 // let HALL_IP = "192.168.1.21";
 let HALL_IP = "49.79.230.74";
 let HALL_CLIENT_PORT = 9001;
