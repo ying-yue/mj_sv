@@ -1015,6 +1015,14 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
         }
     }
 
+
+    if(parseInt(gangPais[1]) >= parseInt(game.SanWenPaiStartID) ||
+        parseInt(gangPais[1]) == parseInt(game.WanStartID) ||
+        parseInt(gangPais[1]) == parseInt(game.PingStartID) ||
+        parseInt(gangPais[1]) == parseInt(game.TiaoStartID)){
+        fan *= 2;
+    }
+
     /////////////////////////////////////////////////////////
 
     if(game.conf.hongdian && game.dice_paly_result){
