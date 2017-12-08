@@ -4151,7 +4151,7 @@ exports.gang_ting = function(userId, data) {
         seatData.self_fan *= 2;
     }
 
-    if(seatData.holds.length == 1){
+    if(seatData.holds.length == 1 || seatData.holds.length >= 10){
         seatData.self_fan *= 2;
     }
 
