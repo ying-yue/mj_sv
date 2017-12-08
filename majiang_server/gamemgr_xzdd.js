@@ -1099,7 +1099,7 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     }
     for(let k in seatData.countMap){
         if(seatData.countMap.hasOwnProperty(k)){
-            if(seatData.countMap[k] > 0 && parseInt(k) >= seatData.game.DongID && parseInt(k) < seatData.game.SanWenPaiStartID + 3){
+            if(seatData.countMap[k] > 0 && parseInt(k) >= parseInt(seatData.game.DongID) && parseInt(k) < parseInt(seatData.game.SanWenPaiStartID) + 3){
                 isExisting = true;
             }
 
@@ -1111,27 +1111,27 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     }
 
     if(!isExisting){
-        if(seatData.gang_baibalzungs.length > 0 || seatData.gang_tongnansebeis.length >0){
+        if(seatData.gang_baibalzungs.length > 0 || seatData.gang_tongnansebeis.length > 0){
             isExisting = true;
         }
         else{
             for(let p of seatData.pengs){
-                if(parseInt(p.pai) >= seatData.game.DongID && parseInt(p.pai) < seatData.game.SanWenPaiStartID + 3){
+                if(parseInt(p.pai) >= parseInt(seatData.game.DongID) && parseInt(p.pai) < parseInt(seatData.game.SanWenPaiStartID) + 3){
                     isExisting = true;
                 }
             }
             for(let p of seatData.wangangs){
-                if(parseInt(p) >= seatData.game.DongID && parseInt(p.pai) < seatData.game.SanWenPaiStartID + 3){
+                if(parseInt(p) >= parseInt(seatData.game.DongID) && parseInt(p.pai) < parseInt(seatData.game.SanWenPaiStartID) + 3){
                     isExisting = true;
                 }
             }
             for(let p of seatData.diangangs){
-                if(parseInt(p.pai) >= seatData.game.DongID && parseInt(p.pai) < seatData.game.SanWenPaiStartID + 3){
+                if(parseInt(p.pai) >= parseInt(seatData.game.DongID) && parseInt(p.pai) < parseInt(seatData.game.SanWenPaiStartID) + 3){
                     isExisting = true;
                 }
             }
             for(let p of seatData.angangs){
-                if(parseInt(p) >= seatData.game.DongID && parseInt(p) < seatData.game.SanWenPaiStartID + 3){
+                if(parseInt(p) >= parseInt(seatData.game.DongID) && parseInt(p) < parseInt(seatData.game.SanWenPaiStartID) + 3){
                     isExisting = true;
                 }
             }
@@ -1889,7 +1889,7 @@ function checkCanGangTing(seatData) {
             seatData.countMap[p]--;
             let i = 0;
             for(let paiOfHolds of seatData.holds){
-                if(paiOfHolds == p){
+                if(parseInt(paiOfHolds) == parseInt(p)){
                     seatData.holds.splice(i, 1);
                     break;
                 }
@@ -4100,7 +4100,7 @@ exports.gang_ting = function(userId, data) {
         var angangs = seatData.angangs;
         angangs.push(resultPais[0]);
     }
-    else if(resultPais[0] == game.DongID){
+    else if(parseInt(resultPais[0]) == parseInt(game.DongID)){
         var gang_tongnansebeis = seatData.gang_tongnansebeis;
         gang_tongnansebeis.push(resultPais);
     }
