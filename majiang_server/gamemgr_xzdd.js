@@ -956,7 +956,8 @@ function calcSelfFan(seatData, otherSeat) {
     // 여기서는 사용자들이 팅을 하였을때 조건을 따진다. 즉 두 사용자가 다같이 이써팅을 하였다면 높은 점수를 따른다.
     // 하지만 서로 다른 종류의 팅일때는 서로 곱해주어야 한다.
     //커팅과 일반깡팅일때도 높은 점수를 취한다.
-    if((seatData.hunYiseTinged || seatData.qingYiseTinged) && (otherSeat.hunYiseTinged || otherSeat.qingYiseTinged)){
+    if(((seatData.hunYiseTinged || seatData.qingYiseTinged) && (otherSeat.hunYiseTinged || otherSeat.qingYiseTinged)) ||
+        (seatData.piaoTinged && otherSeat.piaoTinged)){
         if(otherSeat.self_fan >= seatData.self_fan){
             selfFan = otherSeat.self_fan;
         }
@@ -1020,7 +1021,10 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
         parseInt(gangPais[1]) == parseInt(game.WanStartID) ||
         parseInt(gangPais[1]) == parseInt(game.PingStartID) ||
         parseInt(gangPais[1]) == parseInt(game.TiaoStartID)){
-        fan *= 2;
+        if(gangPais[0] == gangPais[1] == gangPais[2] == gangPais[3]){
+            fan *= 2;
+        }
+
     }
 
     /////////////////////////////////////////////////////////
@@ -2750,13 +2754,8 @@ function doGameOver(game,userId,forceEnd, isZimo){
             rs.numChaJiao += sd.numChaJiao;
 
             let tingType = -1;
-            if(sd.tinged){
-                tingType = 0;
-            }
-            else if(sd.gangTinged){
-                tingType = 1;
-            }
-            else if(sd.hunYiseTinged && sd.piaoTinged){
+
+            if(sd.hunYiseTinged && sd.piaoTinged){
                 tingType = 5;
             }
             else if(sd.qingYiseTinged && sd.piaoTinged){
@@ -2770,6 +2769,12 @@ function doGameOver(game,userId,forceEnd, isZimo){
             }
             else if(sd.piaoTinged){
                 tingType = 4;
+            }
+            else if(sd.gangTinged){
+                tingType = 0;
+            }
+            else if(sd.tinged){
+                tingType = 1;
             }
 
             let hongResult = false;
@@ -3908,29 +3913,6 @@ exports.chuPai = function(userId,pai){
             continue;
         }
 
-        // ddd.holds.push(parseInt(pai));
-        // ddd.countMap[pai]++;
-        //
-        // checkCanHu(game,ddd,pai);
-        // if(!ddd.canHu){
-        //     ddd.canTing = false;
-        // }
-        // else{
-        //     ddd.holds.splice(ddd.holds.indexOf(pai), 1);
-        //     ddd.countMap[pai]--;
-        //     Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
-        //     userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
-        //     seatData.folds.push(game.chuPai);
-        //
-        //     sendOperations(game,ddd,game.chuPai);
-        //     return;
-        //
-        // }
-        //
-        // ddd.holds.splice(ddd.holds.indexOf(pai), 1);
-        // ddd.countMap[pai]--;
-
-
         checkCanPeng(game,ddd,pai);
         if(ddd.canPeng){
             isExistingShunzi = ddd.canPeng;
@@ -3945,9 +3927,6 @@ exports.chuPai = function(userId,pai){
             ddd.gangPai.pop();
             break;
         }
-
-
-
     }
 
     Logger.log(`Finish checking whether some user can do 'peng' or 'gang'. `, roomId);
@@ -3961,31 +3940,6 @@ exports.chuPai = function(userId,pai){
         //已经和牌的不再检查
         if(ddd.hued){
             continue;
-        }
-
-        //player가 후를 할수 있는지를 먼저 판정한다.
-        // if((game.turn + 1) % game.seatCount == i){
-        // ddd.holds.push(parseInt(pai));
-        // ddd.countMap[pai]++;
-        //
-        // checkCanHu(game,ddd,pai);
-        // if(!ddd.canHu){
-        //     ddd.canTing = false;
-        // }
-        //
-        // ddd.holds.splice(ddd.holds.indexOf(pai), 1);
-        // ddd.countMap[pai]--;
-        // }
-
-
-
-
-        if(seatData.lastFangGangSeat == -1){
-            // if(ddd.canHu && ddd.guoHuFan >= 0 && ddd.tingMap[pai].fan <= ddd.guoHuFan){
-            //     console.log("ddd.guoHuFan:" + ddd.guoHuFan);
-            //     ddd.canHu = false;
-            //     userMgr.sendMsg(ddd.userId,'guohu_push');
-            // }
         }
 
         checkCanPeng(game,ddd,pai);
@@ -4003,8 +3957,20 @@ exports.chuPai = function(userId,pai){
                             }
                         }
                         if(!canGangAfterTing){
-                            ddd.canGang = false;
-                            ddd.gangPai.pop();
+                            let isExistingFengPengPais = false;
+                            for(let countMapKey in ddd.countMap){
+                                if(ddd.countMap.hasOwnProperty(countMapKey)){
+                                    if(parseInt(countMapKey) >= parseInt(game.DongID) && ddd.countMap[countMapKey] == 3){
+                                        isExistingFengPengPais = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(!isExistingFengPengPais){
+                                ddd.canGang = false;
+                                ddd.gangPai.pop();
+                            }
+
                         }
                         else{
                             break;
@@ -4015,26 +3981,11 @@ exports.chuPai = function(userId,pai){
 
         }
 
-
-        // if(!seatIndexWithPengOrGang){
-        //     checkCanShunZi(game, ddd, pai);
-        // }
-        // else{
         if(!isExistingShunzi){
             if((game.turn + 1) % game.seatCount == i){
                 checkCanShunZi(game, ddd, pai);
             }
         }
-        // }
-
-
-
-
-        // // 패를 낸 사용자 다음 사용자에 대하여서만 슌찌검사를 한다
-        // if((game.turn + 1) % game.seatCount == i){
-        //     checkCanShunZi(game, ddd, pai);
-        // }
-
 
         if(hasOperations(ddd)){
             Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
@@ -4474,7 +4425,7 @@ exports.ting_pai_client = function(userId, data) {
     if(seatData.piaoTinged && seatData.holds.length == 14){
         seatData.self_fan *= 4;
     }
-    else if(seatData.tinged){
+    else if(seatData.tinged || seatData.piaoTinged){
         seatData.self_fan *= 2;
     }
 
