@@ -2265,6 +2265,10 @@ function sendOperations(game,seatData,pai) {
             }
         }
 
+        if(seatData.canHunYiseTing || seatData.canQingYiseTing || seatData.canPiaoTing){
+            seatData.canTing = false;
+        }
+
         let data = {
             pai:pai,
             hu:seatData.canHu,
