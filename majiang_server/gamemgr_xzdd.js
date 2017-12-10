@@ -971,7 +971,36 @@ function calcSelfFan(seatData, otherSeat) {
     else{
         selfFan = otherSeat.self_fan * seatData.self_fan;
     }
-    selfFan *= jangFan;
+
+    let fan_ke = 1;
+
+    if((isTinged(seatData) && (seatData.holds.length == 1 || seatData.holds.length == 2 || seatData.holds.length == 13 || seatData.holds.length == 14)) ||
+        (isTinged(otherSeat) && (otherSeat.holds.length == 1 || otherSeat.holds.length == 2 || otherSeat.holds.length == 13 || otherSeat.holds.length == 14))){
+        fan_ke *= 2;
+    }
+
+
+    // if(isTinged(seatData) && (seatData.holds.length == 1 || seatData.holds.length == 2 ||
+    //     seatData.holds.length == 13 || seatData.holds.length == 14)){
+    //     fan_ke *= 2;
+    // }
+    //
+    // if(isTinged(otherSeat) && (otherSeat.holds.length == 1 || otherSeat.holds.length == 2 ||
+    //     otherSeat.holds.length == 13 || otherSeat.holds.length == 14)){
+    //     fan_ke *= 2;
+    // }
+
+    if((seatData.gangTinged && seatData.holds.length >= 10) || (otherSeat.gangTinged && otherSeat.holds.length >= 10)){
+        fan_ke *= 2;
+    }
+    // else if(seatData.gangTinged && seatData.holds.length >= 10){
+    //     fan_ke *= 2;
+    // }
+    // else if(otherSeat.gangTinged && otherSeat.holds.length >= 10){
+    //     fan_ke *= 2;
+    // }
+
+    selfFan *= jangFan * fan_ke;
 
     return selfFan;
 }
@@ -4106,19 +4135,15 @@ exports.gang_ting = function(userId, data) {
     else if(seatData.qingYiseTinged){
         seatData.self_fan *= 4;
     }
-    if(seatData.piaoTinged || (!seatData.hunYiseTinged && !seatData.qingYiseTinged && !seatData.piaoTinged)){
+    if(seatData.piaoTinged){
         seatData.self_fan *= 2;
     }
 
-    if(seatData.holds.length == 1 || seatData.holds.length >= 10){
-        seatData.self_fan *= 2;
-    }
+    // if(!seatData.gangTinged && (seatData.holds.length == 1 || seatData.holds.length >= 10)){
+    //     seatData.self_fan *= 2;
+    // }
 
     calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData, resultPais);
-
-
-
-
 
     userMgr.broacastInRoom('gangtinged_notify_push',{userid:seatData.userId,resultPais: resultPais, yisePiaoTings:[seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]},seatData.userId,true);
     //
@@ -4402,9 +4427,9 @@ exports.ting_pai_client = function(userId, data) {
             seatData.self_fan *= 2;
         }
 
-        if(seatData.holds.length == 2 || seatData.holds.length == 14){
-            seatData.self_fan *= 2;
-        }
+        // if(seatData.holds.length == 2 || seatData.holds.length == 14){
+        //     seatData.self_fan *= 2;
+        // }
 
         let sendData = JSON.stringify({data:[seatData.userId,tingPaiData.tingPai,seatData.tingPaiClicked, registerVal]});
         userMgr.broacastInRoom('tinged_yise_pai_notify_push',sendData,seatData.userId,true);
@@ -4422,16 +4447,16 @@ exports.ting_pai_client = function(userId, data) {
 
     //广播通知其它玩家
     
-    if(seatData.piaoTinged && seatData.holds.length == 14){
-        seatData.self_fan *= 4;
-    }
-    else if(seatData.tinged || seatData.piaoTinged){
+    // if(seatData.piaoTinged && (seatData.holds.length == 14 || seatData.holds.length == 2)){
+    //     seatData.self_fan *= 4;
+    // }
+    if(seatData.piaoTinged){
         seatData.self_fan *= 2;
     }
 
-    if(seatData.holds.length == 2 && (seatData.piaoTinged || seatData.tinged)){
-        seatData.self_fan *= 2;
-    }
+    // if(seatData.holds.length == 2 && (seatData.piaoTinged || seatData.tinged)){
+    //     seatData.self_fan *= 2;
+    // }
     
     let sendData = JSON.stringify({data:[seatData.userId,tingPaiData.tingPai,seatData.tingPaiClicked]});
     userMgr.broacastInRoom('tinged_pai_notify_push',sendData,seatData.userId,true);
@@ -5630,6 +5655,7 @@ exports.guo = function(userId){
     // 후을 취소했을때.
     if(seatData.canHu){
         clearAllOptions(game);
+        seatData.availableTingMap = {};
         Logger.log(`user canceled hu. userID: ${userId}, seatIndex: ${seatData.seatIndex}`, roomId);
 
 
