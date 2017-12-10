@@ -2242,14 +2242,7 @@ function hasOperations(seatData){
     return (seatData.canGang || seatData.canPeng || seatData.canHu ||
     seatData.canShunZi || seatData.canGangTongnansebei || seatData.canGangBaiBalZung ||
     seatData.canTing || seatData.canGangTing || seatData.canPiaoTing || seatData.canHunYiseTing || seatData.canQingYiseTing);
-    // if(seatData.canGang || seatData.canPeng || seatData.canHu ||
-    //     seatData.canShunZi || seatData.canGangTongnansebei || seatData.canGangBaiBalZung ||
-    //     seatData.canTing){
-    //     return true;
-    // }
-    // else{
-    //     return false;
-    // }
+
     
 }
 
