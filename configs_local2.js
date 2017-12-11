@@ -1,5 +1,5 @@
 ﻿// let HALL_IP = "192.168.1.49";
-// let HALL_IP = "192.168.1.30";
+// let HALL_IP = "192.168.1.20";
 let HALL_IP = "49.79.230.74";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
@@ -12,8 +12,8 @@ exports.mysql = function(){
 		HOST:'127.0.0.1',
 		USER:'root',
 		PSWD:'',
-		DB:'nodejs',
 		PORT:3306,
+        DB:'nodejs',
 	}
 };
 

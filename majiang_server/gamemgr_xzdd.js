@@ -629,8 +629,9 @@ function checkTingCondition(seatData){
                 break;
         }
 
-        if(parseInt(p.pai) >= seatData.game.DongStartID){
-            continue;
+        if(parseInt(p.pai) >= parseInt(seatData.game.DongStartID)){
+            isExistingOneOrNine = true;
+            break;
         }
 
         n = (parseInt(p.pai) + 1) % 9;
@@ -655,8 +656,9 @@ function checkTingCondition(seatData){
                 break;
         }
 
-        if(parseInt(p) >= seatData.game.DongStartID){
-            continue;
+        if(parseInt(p) >= parseInt(seatData.game.DongStartID)){
+            isExistingOneOrNine = true;
+            break;
         }
 
         n = (parseInt(p) + 1) % 9;
@@ -681,8 +683,9 @@ function checkTingCondition(seatData){
                 break;
         }
 
-        if(parseInt(p) >= seatData.game.DongStartID){
-            continue;
+        if(parseInt(p) >= parseInt(seatData.game.DongStartID)){
+            isExistingOneOrNine = true;
+            break;
         }
 
         n = (parseInt(p) + 1) % 9;
@@ -707,8 +710,9 @@ function checkTingCondition(seatData){
                 break;
         }
 
-        if(parseInt(p) >= seatData.game.DongStartID){
-            continue;
+        if(parseInt(p) >= parseInt(seatData.game.DongStartID)){
+            isExistingOneOrNine = true;
+            break;
         }
 
         n = (parseInt(p) + 1) % 9;
@@ -1962,6 +1966,9 @@ function checkCanGangTing(seatData) {
 
         if(Object.keys(seatData.tingMap).length > 0 && seatData.tingMap.constructor === Object){
             let checkParams = checkTingCondition(seatData);
+            if(parseInt(a_pais[0]) >= parseInt(seatData.game.DongID)){
+                checkParams.isExistingOneOrNine = true;
+            }
 
             if(seatData.game.conf.renshu == 3){
                 if(checkParams.isExistingOneOrNine){
