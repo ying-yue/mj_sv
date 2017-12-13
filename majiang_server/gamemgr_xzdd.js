@@ -23,6 +23,7 @@ let ACTION_YISE_TING = 77;
 let ACTION_YISE_TINGED = 88;
 let ACTION_YISE_GANGFORGANGTING = 99;
 let ACTION_SCORE_CHANGE = 22;
+let ACTION_BASE_INFO = 33;
 
 
 
@@ -35,6 +36,7 @@ let diceNumberList1 = {};
 let diceNumberList2 = {};
 let LevelScore = {};
 let HunagZhuang = {};
+let HongResult = {};
 
 
 
@@ -633,7 +635,7 @@ function checkTingCondition(seatData){
 
         if(parseInt(p.pai) >= parseInt(seatData.game.DongStartID)){
             isExistingOneOrNine = true;
-            break;
+
         }
 
         n = (parseInt(p.pai) + 1) % 9;
@@ -660,7 +662,7 @@ function checkTingCondition(seatData){
 
         if(parseInt(p.pai) >= parseInt(seatData.game.DongStartID)){
             isExistingOneOrNine = true;
-            break;
+
         }
 
         n = (parseInt(p.pai) + 1) % 9;
@@ -687,7 +689,7 @@ function checkTingCondition(seatData){
 
         if(parseInt(p.pai) >= parseInt(seatData.game.DongStartID)){
             isExistingOneOrNine = true;
-            break;
+
         }
 
         n = (parseInt(p.pai) + 1) % 9;
@@ -714,7 +716,7 @@ function checkTingCondition(seatData){
 
         if(parseInt(p) >= parseInt(seatData.game.DongStartID)){
             isExistingOneOrNine = true;
-            break;
+
         }
 
         n = (parseInt(p) + 1) % 9;
@@ -922,16 +924,18 @@ function guoHu(game, seatData){
                 }
             }
         }
+        if(!isTinged(ddd)){
+            if(ddd.canGang){
+                ddd.countMap[game.chuPai]++;
+                ddd.holds.push(parseInt(game.chuPai));
 
-        if(ddd.canGang){
-            ddd.countMap[game.chuPai]++;
-            ddd.holds.push(parseInt(game.chuPai));
+                checkCanGangTing(game.chuPai);
 
-            checkCanGangTing(game.chuPai);
-
-            ddd.countMap[game.chuPai]--;
-            ddd.holds.splice(ddd.holds.indexOf(parseInt(game.chuPai)), 1);
+                ddd.countMap[game.chuPai]--;
+                ddd.holds.splice(ddd.holds.indexOf(parseInt(game.chuPai)), 1);
+            }
         }
+
 
         // // 패를 낸 사용자 다음 사용자에 대하여서만 슌찌검사를 한다
         if(!isExistingShunzi){
@@ -981,9 +985,9 @@ function calcSelfFan(seatData, otherSeat, isQidui) {
             selfFan = seatData.self_fan;
         }
     }
-    else if((seatData.tinged || seatData.gangTinged) && (otherSeat.tinged || otherSeat.gangTinged)) {
-        selfFan = 2;
-    }
+    // else if((seatData.tinged || seatData.gangTinged) && (otherSeat.tinged || otherSeat.gangTinged)) {
+    //     selfFan = 2;
+    // }
     else{
         selfFan = otherSeat.self_fan * seatData.self_fan;
     }
@@ -1083,10 +1087,10 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
 
             //실지 점수의 계산.
             let score = game.basic_score * selfFan * fan;
-            otherSeat.score -= score;
+            // otherSeat.score -= score;
             otherSeat.levelScore -= score;
 
-            seatData.score += score;
+            // seatData.score += score;
             seatData.levelScore += score;
         }
     }
@@ -1097,21 +1101,25 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
 
         //실지 점수의 계산.
         let score = game.basic_score * selfFan * fan;
-        otherSeat.score -= score;
+        // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
-        seatData.score += score;
+        // seatData.score += score;
         seatData.levelScore += score;
     }
 
     let resultScores = [];
+    let resultLevelScores = [];
     for(let seat of game.gameSeats){
         resultScores.push(seat.score);
+        resultScores.push(seat.levelScore);
+
+        resultLevelScores.push(seat.levelScore);
     }
 
     recordGameAction(game,-1,ACTION_SCORE_CHANGE,resultScores);
 
-    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
+    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultLevelScores},seatData.userId,true);
 
 
 }
@@ -1210,6 +1218,19 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
     }
     else{
         flag = true;
+    }
+
+    if(pengCount == 0){
+        let isExistingSanWenPai = false;
+        for(let ppp of seatData.holds){
+            if(parseInt(ppp) >= parseInt(seatData.game.ZhungID)){
+                isExistingSanWenPai = true;
+                break;
+            }
+        }
+        if(!isExistingSanWenPai){
+            flag = false;
+        }
     }
 
     return flag;
@@ -2618,6 +2639,7 @@ function doGameOver(game,userId,forceEnd, isZimo){
             if(sd.hued){
                 isHuangZhunag = false;
             }
+            sd.score += sd.levelScore;
 
             rs.ready = false;
             rs.score = sd.score;
@@ -2730,7 +2752,11 @@ function doGameOver(game,userId,forceEnd, isZimo){
         }
 
         if(old != roomInfo.nextButton){
+            HongResult[roomId] = false;
             db.update_next_button(roomId,roomInfo.nextButton);
+        }
+        else{
+            HongResult[roomId] = game.dice_paly_result;
         }
     }
 
@@ -2776,6 +2802,7 @@ function doGameOver(game,userId,forceEnd, isZimo){
 function deleteInformation(roomId) {
     delete LevelScore[roomId];
     delete HunagZhuang[roomId];
+    delete HongResult[roomId];
 }
 
 
@@ -2936,6 +2963,7 @@ exports.setReady = function(userId,callback){
                 qingYiseTinged: sd.qingYiseTinged,
                 piaoTinged: sd.piaoTinged,
                 score: sd.score,
+                levelScore: sd.levelScore,
                 iszimo:sd.iszimo,
                 paisAvailableTing: sd.paisAvailableTing,
                 hongResult: game.conf.hongdian && game.dice_paly_result,
@@ -2959,7 +2987,7 @@ exports.setReady = function(userId,callback){
 
     var seat = gameSeatsOfUsers[userId];
 
-    userMgr.broacastInRoom('user_ready_push',{userid:userId,ready:true, score:seat.score},userId,true);
+    userMgr.broacastInRoom('user_ready_push',{userid:userId,ready:true, score:seat.score, levelScore:seat.levelScore},userId,true);
 };
 
 function store_single_history(userId,history){
@@ -3311,6 +3339,7 @@ exports.begin = function(roomId) {
         }
 
         scoreList.push(s.score);
+        scoreList.push(0);
 
 
         // userMgr.sendMsg(s.userId,'game_renshu_push',roomInfo.conf.renshu);
@@ -3479,20 +3508,6 @@ exports.dice_start = function(userId){
     if(diceUserList[roomId].indexOf(userId) != -1){
         return;
     }
-    
-    // if(Object.keys(gameSeatsOfUsers).length == 0){
-    //     return;
-    // }
-    
-    // let seatData = gameSeatsOfUsers[userId];
-    // if(seatData == null){
-    //     return;
-    // }
-
-    // if(seatData.game.dicePlayed){
-    //     userMgr.broacastInRoom('dice_play_push',{dicePlayed: true}, userId,true);
-    //     return;
-    // }
 
     if(diceUserList[roomId].indexOf(userId) != -1){
         return;
@@ -3514,69 +3529,29 @@ exports.dice_start = function(userId){
             diceNumberList2[roomId].push(n);
         }
 
-        // diceNumberList1[roomId].push(0);
-        // diceNumberList2[roomId].push(0);
+        // diceNumberList1[rotinged_pai_notifyId].push(0);
 
-        
-
-        for(let seat of roomInfo.seats){
-            userMgr.broacastInRoom('dice_play_push',{dicePlayed: false, numList1: diceNumberList1[roomId], numList2: diceNumberList2[roomId]},seat.userId,true);
-        }
+        // for(let seat of roomInfo.seats){
+        userMgr.broacastInRoom('dice_play_push',{dicePlayed: false, numList1: diceNumberList1[roomId], numList2: diceNumberList2[roomId]},userId,true);
+        // }
         dicePlayed[roomId] = true;
     }
-
-    // if(diceNumberList1.length == 0 || diceNumberList2.length == 0){
-    //     let n;
-    //     for(let i = 0; i < 12; i++){
-    //         n = Math.floor(Math.random() * 6) + 1;
-    //         diceNumberList1.push(n);
-    //     }
-    //
-    //     for(let i = 0; i < 12; i++){
-    //         n = Math.floor(Math.random() * 6) + 1;
-    //         diceNumberList2.push(n);
-    //     }
-    // }
-
-
-    // let roomId = roomMgr.getUserRoom(userId);
-    // let roomInfo = roomMgr.getRoom(roomId);
-    // let playerCount = roomInfo.conf.playerCount;
-    //
-    // if(diceUserList.length == playerCount){
-    //     userMgr.sendMsg(userId,'dice_play_push', {dicePlayed: true});
-    //     return;
-    // }
-    //
-    // if(diceUserList.indexOf(userId) != -1){
-    //     diceUserList.push(userId);
-    // }
-    //
-    // if(diceNumberList1.length == 0 || diceNumberList2.length == 0){
-    //     let n;
-    //     for(let i = 0; i < 12; i++){
-    //         n = Math.floor(Math.random() * 6) + 1;
-    //         diceNumberList1.push(n);
-    //     }
-    //
-    //     for(let i = 0; i < 12; i++){
-    //         n = Math.floor(Math.random() * 6) + 1;
-    //         diceNumberList2.push(n);
-    //     }
-    // }
-    //
-    // if(diceUserList.length == playerCount){
-    //     for(let seat of roomInfo.seats){
-    //         userMgr.sendMsg(seat.userId,'dice_play_push', {dicePlayed: false, numList1: diceNumberList1, numList2: diceNumberList2});
-    //     }
-    // }
-
-
 };
 
 exports.dice_play_result = function (userId, dice_result) {
     let seatData = gameSeatsOfUsers[userId];
-    seatData.game.dice_paly_result = dice_result;
+    let roomId = roomMgr.getUserRoom(userId);
+    if(HongResult[roomId]){
+        seatData.game.dice_paly_result = true;
+    }
+    else{
+        seatData.game.dice_paly_result = dice_result;
+    }
+
+    recordGameAction(seatData.game,-1,ACTION_BASE_INFO,[seatData.game.dice_paly_result, HunagZhuang[roomId]]);
+
+    userMgr.sendMsg(userId, 'hong_display_push',seatData.game.dice_paly_result);
+
 };
 
 exports.dingQue = function(userId,type){
@@ -3827,8 +3802,8 @@ exports.chuPai = function(userId,pai){
         checkCanPeng(game,ddd,pai);
         checkCanMingGang(game,ddd,pai);
 
-        if(isTinged(ddd) && ddd.canGang){
-            if(!ddd.piaoTinged){
+        if(isTinged(ddd)){
+            if(!ddd.piaoTinged && ddd.canGang){
                 for(let k in ddd.tingMap) {
                     if (ddd.tingMap.hasOwnProperty(k)) {
                         let canGangAfterTing = false;
@@ -3865,16 +3840,19 @@ exports.chuPai = function(userId,pai){
             }
 
         }
+        else{
+            if(ddd.canGang){
+                ddd.countMap[pai]++;
+                ddd.holds.push(parseInt(pai));
 
-        if(ddd.canGang){
-            ddd.countMap[pai]++;
-            ddd.holds.push(parseInt(pai));
+                checkCanGangTing(ddd);
 
-            checkCanGangTing(ddd);
-
-            ddd.countMap[pai]--;
-            ddd.holds.splice(ddd.holds.indexOf(parseInt(pai)), 1);
+                ddd.countMap[pai]--;
+                ddd.holds.splice(ddd.holds.indexOf(parseInt(pai)), 1);
+            }
         }
+
+
 
 
         if(!isExistingShunzi){
@@ -4475,9 +4453,10 @@ exports.shunzi = function(userId, data) {
         seatData.countMap[resultPais[i]] --;
     }
     let pai = game.chuPai;
-    let temp = [pai, parseInt(resultPais[0]), parseInt(resultPais[1])];
-    let temp0 = temp.sort();
-    let pais = [temp0[0].toString(), temp0[1].toString(), temp0[2].toString()];
+    // let temp = [pai, parseInt(resultPais[0]), parseInt(resultPais[1])];
+    // let temp0 = temp.sort();
+    // let pais = [temp0[0].toString(), temp0[1].toString(), temp0[2].toString()];
+    let pais = [resultPais[0], pai.toString(), resultPais[1]];
     seatData.shunzis.push(pais);
     game.chuPai = -1;
 
@@ -4775,10 +4754,10 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
             //실지 점수의 계산.
 
             score = game.basic_score * selfFan * fen;
-            otherSeat.score -= score;
+            // otherSeat.score -= score;
             otherSeat.levelScore -= score;
 
-            seatData.score += score;
+            // seatData.score += score;
             seatData.levelScore += score;
         }
     }
@@ -4790,10 +4769,10 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         //실지 점수의 계산.
         score = game.basic_score * selfFan * fen;
 
-        otherSeat.score -= score;
+        // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
-        seatData.score += score;
+        // seatData.score += score;
         seatData.levelScore += score;
     }
     else{
@@ -4802,20 +4781,24 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         //실지 점수의 계산.
         score = game.basic_score * selfFan * fen;
 
-        turnSeat.score -= score;
+        // turnSeat.score -= score;
         turnSeat.levelScore -= score;
 
-        seatData.score += score;
+        // seatData.score += score;
         seatData.levelScore += score;
     }
 
     let getSeatIndex = null;
     let resultScores = [];
+    let resultLevelScores = [];
     for(let seat of game.gameSeats){
         resultScores.push(seat.score);
+        resultScores.push(seat.levelScore);
+
+        resultLevelScores.push(seat.levelScore);
     }
     recordGameAction(game,-1,ACTION_SCORE_CHANGE,resultScores);
-    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultScores},seatData.userId,true);
+    userMgr.broacastInRoom('add_score_notify_push',{resultScores:resultLevelScores},seatData.userId,true);
 
 
 
@@ -5324,10 +5307,10 @@ exports.hu = function(userId){
             //실지 점수의 계산.
 
             let score = game.basic_score * selfFan * fan;
-            otherSeat.score -= score;
+            // otherSeat.score -= score;
              otherSeat.levelScore -= score;
 
-            seatData.score += score;
+            // seatData.score += score;
             seatData.levelScore += score;
         }
     }
@@ -5340,17 +5323,21 @@ exports.hu = function(userId){
 
         let score = game.basic_score * selfFan * fan;
 
-        otherSeat.score -= score;
+        // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
-        seatData.score += score;
+        // seatData.score += score;
         seatData.levelScore += score;
     }
 
     let resultScores = [];
+    let resultLevelScores = [];
 
     for(let s of game.gameSeats){
         resultScores.push(s.score);
+        resultScores.push(s.levelScore);
+
+        resultLevelScores.push(s.levelScore);
     }
     recordGameAction(game,-1,ACTION_SCORE_CHANGE,resultScores);
 

@@ -864,13 +864,13 @@ exports.get_message = function(type,version,callback){
 
     var sql = 'SELECT * FROM t_message WHERE type = "'+ type + '"';
 
-    if(version == "null"){
+    if(version == "null" || version == 'undefined'){
         version = null;
     }
 
     if(version){
         version = '"' + version + '"';
-        sql += ' AND version != ' + version;
+        sql += ' AND version = ' + version;
     }
 
     query(sql, function(err, rows, fields) {
