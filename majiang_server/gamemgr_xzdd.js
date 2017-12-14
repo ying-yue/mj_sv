@@ -1039,7 +1039,7 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
     let gameActionListLength = game.actionList.length;
     n += 3;
     //먼저 정말 마지막에 뜬 패로 깡을 하였는가를 검사
-    if(seatData.seatIndex == game.turn && gangPais.indexOf(game.paiMopaiByUser.toString()) != -1){
+    if(game.paiMopaiByUser != null && seatData.seatIndex == game.turn && gangPais.indexOf(game.paiMopaiByUser.toString()) != -1){
         //다음 실지로 모파이를 하였는가를 검사
         if(game.actionList[gameActionListLength - n] == seatData.seatIndex &&
             game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
