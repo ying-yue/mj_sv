@@ -3536,10 +3536,7 @@ exports.dice_start = function(userId){
         }
 
         // diceNumberList1[rotinged_pai_notifyId].push(0);
-
-        // for(let seat of roomInfo.seats){
         userMgr.broacastInRoom('dice_play_push',{dicePlayed: false, numList1: diceNumberList1[roomId], numList2: diceNumberList2[roomId]},userId,true);
-        // }
         dicePlayed[roomId] = true;
     }
 };
