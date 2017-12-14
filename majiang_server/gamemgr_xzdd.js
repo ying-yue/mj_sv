@@ -3551,12 +3551,23 @@ exports.dice_play_result = function (userId, dice_result) {
         seatData.game.dice_paly_result = true;
     }
     else{
-        seatData.game.dice_paly_result = dice_result;
+        if(dice_result == 0){
+            seatData.game.dice_paly_result = false;
+        }
+        else{
+            seatData.game.dice_paly_result = true;
+        }
+
+    }
+
+    let sendNum = 0;
+    if(seatData.game.dice_paly_result){
+        sendNum = 1;
     }
 
     recordGameAction(seatData.game,-1,ACTION_BASE_INFO,[seatData.game.dice_paly_result, HunagZhuang[roomId]]);
 
-    userMgr.sendMsg(userId, 'hong_display_push',{dice_paly_result:seatData.game.dice_paly_result});
+    userMgr.sendMsg(userId, 'hong_display_push',sendNum);
 
 };
 
