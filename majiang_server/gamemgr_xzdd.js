@@ -3536,7 +3536,10 @@ exports.dice_start = function(userId){
         }
 
         // diceNumberList1[rotinged_pai_notifyId].push(0);
+
+        // for(let seat of roomInfo.seats){
         userMgr.broacastInRoom('dice_play_push',{dicePlayed: false, numList1: diceNumberList1[roomId], numList2: diceNumberList2[roomId]},userId,true);
+        // }
         dicePlayed[roomId] = true;
     }
 };
@@ -3553,7 +3556,7 @@ exports.dice_play_result = function (userId, dice_result) {
 
     recordGameAction(seatData.game,-1,ACTION_BASE_INFO,[seatData.game.dice_paly_result, HunagZhuang[roomId]]);
 
-    userMgr.sendMsg(userId, 'hong_display_push',seatData.game.dice_paly_result);
+    userMgr.sendMsg(userId, 'hong_display_push',{dice_paly_result:seatData.game.dice_paly_result});
 
 };
 
