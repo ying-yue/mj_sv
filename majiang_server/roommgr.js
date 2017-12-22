@@ -80,7 +80,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
         || roomConf.qidui8 == null
 		|| roomConf.yise == null
 		|| roomConf.tinghoufeigang == null
-        // || roomConf.budaipihu == null
+        || roomConf.mahjongtype == null
         // || roomConf.budaichi == null
         || roomConf.bubaibalzhung == null){
 		callback(1,null);
@@ -159,6 +159,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
                             // budaipihu:roomConf.budaipihu,
                             // budaichi:roomConf.budaichi,
                             bubaibalzhung:roomConf.bubaibalzhung,
+                            mahjongtype: roomConf.mahjongtype,
                             // zimo:roomConf.zimo,
 						    // jiangdui:roomConf.jiangdui,
 						    // hsz:roomConf.huansanzhang,
