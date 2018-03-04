@@ -47,7 +47,7 @@ function debugRecord(pai){
 function matchSingle (seatData,selected, DongStartID){
 	let roomId = roomMgr.getUserRoom(seatData.userId);
 	if(seatData.game.mahjongs.length - seatData.game.currentIndex < 2){
-        Logger.log(`checking match to check ting. selectedPai: ${selected}, userId: ${seatData.userId}, seatIndex: ${seatData.seatIndex}`, roomId);
+        // Logger.log(`checking match to check ting. selectedPai: ${selected}, userId: ${seatData.userId}, seatIndex: ${seatData.seatIndex}`, roomId);
     }
 	if(selected == null){
 		return false;

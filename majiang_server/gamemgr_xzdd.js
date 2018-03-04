@@ -503,6 +503,8 @@ function checkCanHu(game,seatData,targetPai) {
     if(!isTinged(seatData)){
         checkCanTingOrHuCondition(seatData);
 
+        seatData.tingMap = {};
+
         for(let kk in seatData.availableTingMap){
             if(seatData.availableTingMap.hasOwnProperty(kk)){
                 for(let k in seatData.availableTingMap[kk]) {
@@ -556,7 +558,7 @@ function checkCanHu(game,seatData,targetPai) {
                                 if(data && data.pattern){
                                     pattern = data.pattern;
                                 }
-                                seatData.tingMap = {};
+
                                 seatData.tingMap[targetPai] = {
                                     fan:5,
                                     arrayPengForPiaoHu: data.arrayPengForPiaoHu,
@@ -998,17 +1000,28 @@ function guoHu(game, seatData){
 }
 
 function calcSelfFan(seatData, otherSeat, isQidui) {
+    let roomId = roomMgr.getUserRoom(seatData.userId);
+
+    Logger.log(`***** fan calculation start *****`, roomId);
+
+
     let game = seatData.game;
     //원래 기초점수가 2이므로 이 점수는 핑쟈의 점수이다. 즉 쫭에 대하여서는 2배해주어야 한다.
     let jangFan = 1;
     if(seatData.seatIndex == game.button || otherSeat.seatIndex == game.button){
         jangFan = 2;
+
+        Logger.log(`As zhuang, jangFan: ${jangFan}`, roomId);
     }
 
     let selfFan = 0;
     // 여기서는 사용자들이 팅을 하였을때 조건을 따진다. 즉 두 사용자가 다같이 이써팅을 하였다면 높은 점수를 따른다.
     // 하지만 서로 다른 종류의 팅일때는 서로 곱해주어야 한다.
     //커팅과 일반깡팅일때도 높은 점수를 취한다.
+    Logger.log(`seatData.hunYiseTinged: ${seatData.hunYiseTinged}`, roomId);
+    Logger.log(`seatData.qingYiseTinged: ${seatData.qingYiseTinged}`, roomId);
+    Logger.log(`seatData.piaoTinged: ${seatData.piaoTinged}`, roomId);
+
     if(((seatData.hunYiseTinged || seatData.qingYiseTinged) && (otherSeat.hunYiseTinged || otherSeat.qingYiseTinged)) ||
         (seatData.piaoTinged && otherSeat.piaoTinged)){
         if(otherSeat.self_fan >= seatData.self_fan){
@@ -1023,12 +1036,24 @@ function calcSelfFan(seatData, otherSeat, isQidui) {
         selfFan = otherSeat.self_fan * seatData.self_fan;
     }
 
+    Logger.log(`selfFan: ${selfFan}`, roomId);
+
     let fan_ke = 1;
+
+    Logger.log(`isQidui: ${isQidui}`, roomId);
+
+    Logger.log(`seatData.isKeTing: ${seatData.isKeTing}`, roomId);
+    Logger.log(`otherSeat.isKeTing: ${otherSeat.isKeTing}`, roomId);
 
     //qidui를 성공한 경우 커 는 생각하지 않는다.
     if(!isQidui){
         if(seatData.isKeTing || otherSeat.isKeTing){
             fan_ke = 2;
+            Logger.log(`seatData.isKeTing=${seatData.isKeTing} otherSeat.isKeTing=${otherSeat.isKeTing} fan_ke: ${fan_ke}`, roomId);
+        }
+        else if((seatData.holds.length == 1 || seatData.holds.length == 2) || (otherSeat.holds.length == 1 || otherSeat.holds.length == 2) ){
+            fan_ke = 2;
+            Logger.log(`As holds of seatdata or otherseat is 1 pai.   fan_ke: ${fan_ke}`, roomId);
         }
         // if((isTinged(seatData) && (seatData.holds.length == 1 || seatData.holds.length == 2 || seatData.holds.length == 13 || seatData.holds.length == 14)) ||
         //     (isTinged(otherSeat) && (otherSeat.holds.length == 1 || otherSeat.holds.length == 2 || otherSeat.holds.length == 13 || otherSeat.holds.length == 14))){
@@ -1039,9 +1064,11 @@ function calcSelfFan(seatData, otherSeat, isQidui) {
         // }
     }
 
-
+    Logger.log(`fan_ke: ${fan_ke}`, roomId);
 
     selfFan *= jangFan * fan_ke;
+
+    Logger.log(`******* fan calculation end :  selfFan = ${selfFan}  **************`, roomId);
 
     return selfFan;
 }
@@ -1058,16 +1085,112 @@ function calcPengCount(seatData) {
     return pengCount;
 }
 
+function checkPengBeforeTingAndSaveScore(seatData, isGangTinged){
+    let roomId = roomMgr.getUserRoom(seatData.userId);
+
+    Logger.log(`----- 팅을 할때 그전에 펑을 하였는가를 검사하고 거기에 그때의 dianpo점수를 보관하였다가 만일 그 패로 jiangang을 하면 그점수를 리용해야 한다.--------------`, roomId);
+
+    let game = seatData.game;
+    ////////////////////////////////////////////////////////////////
+    // 팅을 하기전에 펑을 했는가를 검사하고 그때의 점수를 보관했다가 후에
+    // 이 펑을 가지고 jiagang을 하면 그 점수의 2배로 해주어야 한다.
+
+    let gameActionListLength = game.actionList.length;
+
+    let calcGangValToSave = 0;
+    let n = 3;
+    if(!isGangTinged){
+        n = 6;
+    }
+    //팅을 하기전에 peng 을 하였는가를 검사한다.
+    if(game.actionList[gameActionListLength - n + 1] == ACTION_PENG){
+        let seatIndexSaved = game.actionList[gameActionListLength - n];
+        if(parseInt(seatIndexSaved) == parseInt(seatData.seatIndex)){
+            let tempPeng = game.actionList[gameActionListLength - n + 2];
+            let getSeatIndex = tempPeng.getSeatIndex;
+            let pengPai = tempPeng.pai;
+
+            let fan = 1;
+
+            //다음 실지로 chupai 하였는가를 검사
+            n += 3;
+            if(game.actionList[gameActionListLength - n + 1] == ACTION_CHUPAI){
+
+                n += 3;
+                // 다음 chupai 하기전에 실지로 깡을 하였는가를 검사.
+                if(game.actionList[gameActionListLength - n] == seatIndexSaved &&
+                    (game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
+                    game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
+                    game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI  ||
+                    game.actionList[gameActionListLength - n + 1] == ACTION_GANGTINGED)){
+                    fan *= 2;
+                    Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
+                }
+            }
+
+
+            if(parseInt(pengPai) >= parseInt(game.SanWenPaiStartID) ||
+                parseInt(pengPai) == parseInt(game.WanStartID) ||
+                parseInt(pengPai) == parseInt(game.PingStartID) ||
+                parseInt(pengPai) == parseInt(game.TiaoStartID)){
+
+                fan *= 2;
+
+                Logger.log(`----- WanStartID OR PingStartID OR TiaoStartID OR SanWenPai = true : pai = ${pengPai}*`, roomId);
+                Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
+
+            }
+
+            /////////////////////////////////////////////////////////
+
+            if(game.conf.hongdian && game.dice_paly_result){
+                fan = 2;
+
+                Logger.log(`------ hongdian = true `, roomId);
+                Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
+            }
+
+            if(HunagZhuang[roomId]){
+                fan *= 2;
+
+                Logger.log(`------ HunagZhuang = true `, roomId);
+                Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
+            }
+
+            Logger.log(`------ fan calc end---------- `, roomId);
+
+
+
+            let otherSeat = game.gameSeats[getSeatIndex];
+            let selfFan = calcSelfFan(seatData, otherSeat);
+            calcGangValToSave = game.basic_score * selfFan * fan;
+
+            //그펑에 점수를 보관한다.
+            let pengLen = seatData.pengs.length;
+            let peng1 = seatData.pengs[pengLen - 1];
+            peng1.gangValToSave = calcGangValToSave;
+
+            Logger.log(`score = ${calcGangValToSave} `, roomId);
+        }
+
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////
+}
+
 function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
     // 이것은 련속적인 깡을 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
     // 이것을 검사하기 위하여 action의 배렬을 검사한다.
+    let roomId = roomMgr.getUserRoom(seatData.userId);
+    Logger.log(`******* starting calculation gang score (userID: ${seatData.userId}) **************`, roomId);
+
+    Logger.log(`gangPais: ${gangPais} **************`, roomId);
+
+    Logger.log(`------ fan calc start ---------- `, roomId);
 
     let fan = 1;
     let n = 0;
 
     let curGangVal = 0;
-
-    let roomId = roomMgr.getUserRoom(seatData.userId);
 
     let gameActionListLength = game.actionList.length;
     n += 3;
@@ -1088,8 +1211,10 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
                     seatData.gangHouGangList = [];
                 }
                 seatData.gangHouGangList.push(gangPais);
-
                 fan *= 2;
+
+                Logger.log(`------ gangHouGang = true : gangHouGangList = ${seatData.gangHouGangList}*`, roomId);
+                Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
             }
         }
     }
@@ -1099,9 +1224,14 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
         parseInt(gangPais[1]) == parseInt(game.WanStartID) ||
         parseInt(gangPais[1]) == parseInt(game.PingStartID) ||
         parseInt(gangPais[1]) == parseInt(game.TiaoStartID)){
-        if(gangPais[0] == gangPais[1] == gangPais[2]){
+        if(parseInt(gangPais[0]) == parseInt(gangPais[1])){
             fan *= 2;
+
+            Logger.log(`----- WanStartID OR PingStartID OR TiaoStartID OR SanWenPai = true : pai = ${gangPais[1]}*`, roomId);
+            Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
         }
+
+
 
     }
 
@@ -1109,40 +1239,71 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
 
     if(game.conf.hongdian && game.dice_paly_result){
         fan = 2;
+
+        Logger.log(`------ hongdian = true `, roomId);
+        Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
     }
 
     if(HunagZhuang[roomId]){
         fan *= 2;
+
+        Logger.log(`------ HunagZhuang = true `, roomId);
+        Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
     }
+
+    Logger.log(`------ fan calc end---------- `, roomId);
 
 
 
 
     //깡을 한 사람이 짱일때 점수를 2배로 해주고 나머지 사람들에게 2배씩 덜어준다.
     if(gangPais.length != 3){
+
+        Logger.log(`------ In case of 동서남북 혹은 백발중깡 ------- `, roomId);
+
         for(let otherSeat of game.gameSeats){
             if(otherSeat.seatIndex == seatData.seatIndex){
                 continue;
             }
 
+            Logger.log(`------ starting calculation for userid : ${otherSeat.userId} ------- `, roomId);
+
             let selfFan = calcSelfFan(seatData, otherSeat);
+
+            Logger.log(`selfFan : ${selfFan} ------- `, roomId);
 
             //실지 점수의 계산.
             let score = game.basic_score * selfFan * fan;
+
+            Logger.log(`score : ${score} ------- `, roomId);
 
             curGangVal += score;
             // otherSeat.score -= score;
             otherSeat.levelScore -= score;
 
+            Logger.log(`otherSeat.levelScore : ${otherSeat.levelScore} ------- `, roomId);
+
             // seatData.score += score;
             seatData.levelScore += score;
+
+            Logger.log(`levelScore of gang man : ${seatData.levelScore} ------- `, roomId);
+
+            Logger.log(`------ end calculation for userid : ${otherSeat.userId} ------- `, roomId);
         }
         game.currentGangVal = [0, curGangVal];
+
+        Logger.log(`------ 동서남북 혹은 백발중깡 calc end------- `, roomId);
     }
     else{
+
+        Logger.log(`------ In case of diangangting ------- `, roomId);
         let otherSeat = game.gameSeats[game.turn];
 
+        Logger.log(`------ starting calculation for userid : ${otherSeat.userId} ------- `, roomId);
+
         let selfFan = calcSelfFan(seatData, otherSeat);
+
+        Logger.log(`selfFan : ${selfFan} ------- `, roomId);
 
         //실지 점수의 계산.
 
@@ -1179,20 +1340,31 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
         let score = 0;
 
         if(calcGangValToSave > 0){
+            Logger.log(`----- continuous gang = true------`, roomId);
             score = calcGangValToSave;
         }
         else{
             score = game.basic_score * selfFan * fan;
         }
 
+        Logger.log(`score : ${score} ------- `, roomId);
+
         curGangVal = score;
         game.currentGangVal = [1, curGangVal];
         // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
+        Logger.log(`otherSeat.levelScore : ${otherSeat.levelScore} ------- `, roomId);
+
         // seatData.score += score;
         seatData.levelScore += score;
+
+        Logger.log(`levelScore of gang man : ${seatData.levelScore} ------- `, roomId);
+
+        Logger.log(`------ end calc diangangting score ------- `, roomId);
     }
+
+    Logger.log(`******* end calculation gang score (userID: ${seatData.userId}) **************`, roomId);
 
 
 
@@ -1312,9 +1484,9 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
             // }
         }
         else{
-            if(seatData.hued){
-                seatData.canPiaoTing = true;
-            }
+            // if(seatData.hued){
+            //     seatData.canPiaoTing = true;
+            // }
             flag = true;
         }
 
@@ -1333,6 +1505,9 @@ function checkCanHuForPeng4(seatData, targetPai, arrayPengForPiaoHu, isCanGangTi
         }
         if(!isExistingSanWenPai){
             flag = false;
+        }
+        if(onePai == 0 && twoPai == 2){
+            flag = true;
         }
     }
 
@@ -1909,6 +2084,8 @@ function checkCanTingOrHuCondition(seatData) {
             }
         }
 
+        seatData.tingMap = {};
+
 
         for(let removeKey in seatData.availableTingMap){
             for(let k in seatData.availableTingMap[removeKey]){
@@ -1921,7 +2098,7 @@ function checkCanTingOrHuCondition(seatData) {
                         if(seatData.availableTingMap[removeKey][k]){
                             pattern = seatData.availableTingMap[removeKey][k].pattern;
                         }
-                        seatData.tingMap = {};
+
                         seatData.tingMap[k] = {
                             fan:5,
                             arrayPengForPiaoHu: map1.arrayPengForPiaoHu,
@@ -2409,6 +2586,9 @@ function doUserMoPai(game){
             else{
                 // turnSeat.countMap[p]--;
                 // turnSeat.holds.pop();
+
+                checkCanAnGang(game,turnSeat);
+                checkCanJiaGang(game,turnSeat);
 
                 recordGameAction(game,game.turn,ACTION_MOPAI,p);
 
@@ -3221,7 +3401,7 @@ function store_history(roomInfo){
         let hs = history.seats[i] = {};
         hs.userid = rs.userId;
         hs.name = rs.name;
-        // hs.name = crypto.toBase64(rs.name);
+        hs.name = crypto.toBase64(rs.name);
         hs.score = rs.score;
     }
 
@@ -3335,7 +3515,7 @@ exports.begin = function(roomId) {
             game.TiaoStartID = 0;
             game.SanWenPaiStartID = 18;
 
-            game.DongID = null;
+            game.DongID = '18';
             game.SeID = null;
             game.NanID = null;
             game.BeiID = null;
@@ -3374,7 +3554,7 @@ exports.begin = function(roomId) {
             // game.DongStartID = 9;
             game.SanWenPaiStartID = 9;
 
-            game.DongID = null;
+            game.DongID = '9';
             game.SeID = null;
             game.NanID = null;
             game.BeiID = null;
@@ -3411,7 +3591,7 @@ exports.begin = function(roomId) {
             game.TiaoStartID = 18;
             game.SanWenPaiStartID = 27;
 
-            game.DongID = null;
+            game.DongID = '27';
             game.SeID = null;
             game.NanID = null;
             game.BeiID = null;
@@ -3836,7 +4016,7 @@ exports.dice_play_result = function (userId, dice_result) {
         sendNum = 1;
     }
 
-    recordGameAction(seatData.game,-1,ACTION_BASE_INFO,[seatData.game.dice_paly_result, HunagZhuang[roomId]]);
+    recordGameAction(seatData.game,-1,ACTION_BASE_INFO,[seatData.game.dice_paly_result, HunagZhuang[roomId], seatData.game.conf.mahjongtype]);
 
     userMgr.sendMsg(userId, 'hong_display_push',sendNum);
 
@@ -4323,6 +4503,8 @@ exports.gang_ting = function(userId, data) {
         seatData.isKeTing = true;
     }
 
+    checkPengBeforeTingAndSaveScore(seatData, true);
+
     calcScoreByBaibalzhungSanwanpaiGang(seatData.game, seatData, resultPais);
 
     recordGameAction(game,seatData.seatIndex, ACTION_GANGTINGED, [resultPais, [seatData.hunYiseTinged, seatData.qingYiseTinged, seatData.piaoTinged]]);
@@ -4613,7 +4795,7 @@ exports.ting_pai_client = function(userId, data) {
         }
         
         if(seatData.piaoTinged){
-            if(seatData.game.conf.mahjongtype == 0){
+            if(seatData.game.conf.mahjongtype == 0 && (!seatData.qingYiseTinged && !seatData.hunYiseTinged)){
                 seatData.self_fan *= 4;
             }
             else{
@@ -4625,6 +4807,8 @@ exports.ting_pai_client = function(userId, data) {
         if(seatData.holds.length == 2 || seatData.holds.length == 14){
             seatData.isKeTing = true;
         }
+
+        checkPengBeforeTingAndSaveScore(seatData);
 
         let sendData = JSON.stringify({data:[seatData.userId,tingPaiData.tingPai,seatData.tingPaiClicked, registerVal]});
         userMgr.broacastInRoom('tinged_yise_pai_notify_push',sendData,seatData.userId,true);
@@ -4656,6 +4840,8 @@ exports.ting_pai_client = function(userId, data) {
     if(seatData.holds.length == 2 || seatData.holds.length == 14){
         seatData.isKeTing = true;
     }
+
+    checkPengBeforeTingAndSaveScore(seatData);
     
     let sendData = JSON.stringify({data:[seatData.userId,tingPaiData.tingPai,seatData.tingPaiClicked]});
     userMgr.broacastInRoom('tinged_pai_notify_push',sendData,seatData.userId,true);
@@ -4918,14 +5104,27 @@ exports.peng = function(userId){
         }
     }
 
-    ////////////////////////////////////////////////////////////////
-    // 깡을 한다음에 버린 패로 펑을 하는가를 검사하고 그때 얻은 깡의 점수를 보관했다가 후에
-    // 이 펑을 가지고 jiagang을 하면 그 점수의 2배로 해주어야 한다.
-    let n = 0;
-    let gangValToSave = [];
-
-    let gameActionListLength = game.actionList.length;
-    // n += 6;
+    // ////////////////////////////////////////////////////////////////
+    // // 깡을 한다음에 버린 패로 펑을 하는가를 검사하고 그때 얻은 깡의 점수를 보관했다가 후에
+    // // 이 펑을 가지고 jiagang을 하면 그 점수의 2배로 해주어야 한다.
+    // let n = 0;
+    // let gangValToSave = [];
+    //
+    // let gameActionListLength = game.actionList.length;
+    //
+    // let turnSeat = game.gameSeats[game.turn];
+    //
+    //
+    // let selfFan = calcSelfFan(seatData, turnSeat);
+    //
+    // //실지 점수의 계산.
+    //
+    // ////////////////////////////////////////////////////////////////
+    // // 깡을 한다음에 버린 패로 펑을 하는가를 검사하고 그때 얻은 깡의 점수를 보관했다가 후에
+    // // 이 펑을 가지고 jiagang을 하면 그 점수의 2배로 해주어야 한다.
+    //
+    // let calcGangValToSave = 0;
+    // n = 6;
     // //chupai를 하기전에 mopai를 하였는가를 검사한다.
     // if(game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
     //     // mopai를 하기전에 깡을 하였는가를 검사한다.
@@ -4934,49 +5133,24 @@ exports.peng = function(userId){
     //         game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
     //         game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI  ||
     //         game.actionList[gameActionListLength - n + 1] == ACTION_GANGTINGED){
-    //         gangValToSave = game.currentGangVal;
+    //         if(game.currentGangVal){
+    //             if(game.currentGangVal[0] == 0){
+    //                 calcGangValToSave = game.basic_score * selfFan * game.currentGangVal[1] * 2;
+    //             }
+    //             else{
+    //                 if(seatData.seatIndex == game.button){
+    //                     calcGangValToSave = game.currentGangVal[1] * 4;
+    //                 }
+    //                 else{
+    //                     calcGangValToSave = game.currentGangVal[1] * 2;
+    //                 }
+    //
+    //             }
+    //         }
+    //
     //     }
     // }
-
-    let turnSeat = game.gameSeats[game.turn];
-
-
-    let selfFan = calcSelfFan(seatData, turnSeat);
-
-    //실지 점수의 계산.
-
-    ////////////////////////////////////////////////////////////////
-    // 깡을 한다음에 버린 패로 펑을 하는가를 검사하고 그때 얻은 깡의 점수를 보관했다가 후에
-    // 이 펑을 가지고 jiagang을 하면 그 점수의 2배로 해주어야 한다.
-
-    let calcGangValToSave = 0;
-    n = 6;
-    //chupai를 하기전에 mopai를 하였는가를 검사한다.
-    if(game.actionList[gameActionListLength - n + 1] == ACTION_MOPAI){
-        // mopai를 하기전에 깡을 하였는가를 검사한다.
-        n += 3;
-        if(game.actionList[gameActionListLength - n + 1] == ACTION_GANG ||
-            game.actionList[gameActionListLength - n + 1] == ACTION_GANGBAIBALZUNG ||
-            game.actionList[gameActionListLength - n + 1] == ACTION_GANGTONGNANSEBEI  ||
-            game.actionList[gameActionListLength - n + 1] == ACTION_GANGTINGED){
-            if(game.currentGangVal){
-                if(game.currentGangVal[0] == 0){
-                    calcGangValToSave = game.basic_score * selfFan * game.currentGangVal[1] * 2;
-                }
-                else{
-                    if(seatData.seatIndex == game.button){
-                        calcGangValToSave = game.currentGangVal[1] * 4;
-                    }
-                    else{
-                        calcGangValToSave = game.currentGangVal[1] * 2;
-                    }
-
-                }
-            }
-
-        }
-    }
-    /////////////////////////////////////////////////////////////////////////////////////////////
+    // /////////////////////////////////////////////////////////////////////////////////////////////
 
     game.currentGangVal = [];
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -5004,12 +5178,12 @@ exports.peng = function(userId){
         seatData.holds.splice(index,1);
         seatData.countMap[pai] --;
     }
-    if(calcGangValToSave <= 0){
+    // if(calcGangValToSave <= 0){
         seatData.pengs.push({pai:pai, getSeatIndex: game.turn});
-    }
-    else{
-        seatData.pengs.push({pai:pai, getSeatIndex: game.turn, gangValToSave: calcGangValToSave});
-    }
+    // }
+    // else{
+    //     seatData.pengs.push({pai:pai, getSeatIndex: game.turn, gangValToSave: calcGangValToSave});
+    // }
 
     game.chuPai = -1;
 
@@ -5124,6 +5298,8 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
 
     let curGangVal = 0;
 
+    let isGangHouGang = false;
+
 
 
     let seatIndexToOutPengPai = null;
@@ -5143,6 +5319,8 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
 
     // 깡을 한 user가 짱인 경우
 
+
+    Logger.log(`******* staring calculation gang score (userID: ${seatData.userId}) **************`, roomId);
 
 
     // 이것은 련속적인 깡을 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
@@ -5174,7 +5352,13 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
                 }
                 seatData.gangHouGangList.push([pai, pai, pai, pai]);
 
+                Logger.log(`gangHouGang = true (seatData.gangHouGangList: ${seatData.gangHouGangList})`, roomId);
+
                 fen *= 2;
+
+                Logger.log(`fan *= 2;   fan = ${fen}`, roomId);
+
+                isGangHouGang = true;
             }
         }
     }
@@ -5185,67 +5369,112 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         parseInt(pai) == parseInt(game.PingStartID) ||
         parseInt(pai) == parseInt(game.TiaoStartID)){
         fen *= 2;
+
+        Logger.log(`WanStartID OR PingStartID OR TiaoStartID OR  SanWenPai = true:    pai = ${pai}`, roomId);
+        Logger.log(`fan *= 2;   fan = ${fen}`, roomId);
     }
 
     if(game.conf.hongdian && game.dice_paly_result){
-        fen = 2;
+        fen *= 2;
+
+        Logger.log(`hongdian = true`, roomId);
+        Logger.log(`fan *= 2;   fan = ${fen}`, roomId);
     }
 
     if(HunagZhuang[roomId]){
         fen *= 2;
+
+        Logger.log(`HunagZhuang = true`, roomId);
+        Logger.log(`fan *= 2;   fan = ${fen}`, roomId);
     }
 
     let score = 0;
 
     if(gangtype == 'angang'){
+        Logger.log(`--------- in case of angang ----------`, roomId);
+
         for(let otherSeat of game.gameSeats){
             if(otherSeat.seatIndex == seatData.seatIndex){
                 continue;
             }
+            Logger.log(`otherSeat.userId = ${otherSeat.userId}`, roomId);
 
             let selfFan = calcSelfFan(seatData, otherSeat);
+
+            Logger.log(`selfFan = ${selfFan}`, roomId);
 
             //실지 점수의 계산.
 
             score = game.basic_score * selfFan * fen;
 
+            Logger.log(`score = ${score}`, roomId);
+
             curGangVal += score;
             // otherSeat.score -= score;
             otherSeat.levelScore -= score;
 
+            Logger.log(`otherSeat.levelScore = ${otherSeat.levelScore}`, roomId);
+
             // seatData.score += score;
             seatData.levelScore += score;
+
+            Logger.log(`levelScore of gang man = ${seatData.levelScore}`, roomId);
         }
         game.currentGangVal = [0, fen];
     }
     else if(gangtype == 'wangang'){
+        Logger.log(`--------- in case of wangang ----------`, roomId);
+
         let otherSeat = game.gameSeats[seatIndexToOutPengPai];
 
-        let selfFan = calcSelfFan(seatData, otherSeat);
+        Logger.log(`otherSeat.userId = ${otherSeat.userId}`, roomId);
+
+        let selfFan = 1;
+
+        if(seatIndexToOutPengPai == game.button){
+            selfFan = 2;
+        }
+
+        let selfFanToSaveGangScore = calcSelfFan(seatData, otherSeat);
+
+        Logger.log(`selfFan = ${selfFan}`, roomId);
 
         //// 실지 점수의 계산.
         if(gangValToSave > 0){
             score = gangValToSave;
+
+            Logger.log(`continuous gang = true`, roomId);
 
         }
         else{
             score = game.basic_score * selfFan * fen;
         }
 
+        Logger.log(`score = ${score}`, roomId);
+
         // score = game.basic_score * selfFan * fen;
 
 
-        curGangVal = score;
+        curGangVal = game.basic_score * selfFanToSaveGangScore * fen;;
         game.currentGangVal = [1, curGangVal];
 
         // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
+        Logger.log(`otherSeat.levelScore = ${otherSeat.levelScore}`, roomId);
+
         // seatData.score += score;
         seatData.levelScore += score;
+
+        Logger.log(`levelScore of gang man = ${otherSeat.levelScore}`, roomId);
     }
     else{
+        Logger.log(`--------- in case of diangang ----------`, roomId);
+        Logger.log(`turnSeat.userId = ${turnSeat.userId}`, roomId);
+
         let selfFan = calcSelfFan(seatData, turnSeat);
+
+        Logger.log(`selfFan = ${selfFan}`, roomId);
 
         //실지 점수의 계산.
 
@@ -5286,10 +5515,14 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
 
         if(calcGangValToSave > 0){
             score = calcGangValToSave;
+
+            Logger.log(`continuous gang = true`, roomId);
         }
         else{
             score = game.basic_score * selfFan * fen;
         }
+
+        Logger.log(`score = ${score}`, roomId);
 
         curGangVal = score;
         game.currentGangVal = [1, curGangVal];
@@ -5297,9 +5530,15 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         // turnSeat.score -= score;
         turnSeat.levelScore -= score;
 
+        Logger.log(`turnSeat.levelScore = ${turnSeat.levelScore}`, roomId);
+
         // seatData.score += score;
         seatData.levelScore += score;
+
+        Logger.log(`levelScore of gang man = ${seatData.levelScore}`, roomId);
     }
+
+    Logger.log(`******* end calculation gang score (userID: ${seatData.userId}) **************`, roomId);
 
     let getSeatIndex = null;
     let resultScores = [];
@@ -5577,7 +5816,7 @@ exports.hu = function(userId){
         recordUserAction(game,gangSeat,"beiqianggang",seatIndex);
     }
     else if(game.chuPai == -1){
-        hupai = seatData.holds[seatData.holds.length - 1];
+        hupai = game.mahjongs[game.currentIndex - 1];//seatData.holds[seatData.holds.length - 1];
         notify = -1;
         if(seatData.isGangHu){
             if(turnSeat.lastFangGangSeat == seatIndex){
@@ -5710,32 +5949,51 @@ exports.hu = function(userId){
     //和了三家
 
     //점수계산
+    Logger.log(`******* staring calculation hu score (userID: ${seatData.userId}) **************`, roomId);
+
     let baseScore = game.basic_score;
     let fan = 1;
     
     //후를 한 사람의 정보에 의한 배수의 계산.
     if(seatData.isQiangGangHu){
         fan *= 2;
+
+        Logger.log(`isQiangGangHu = true`, roomId);
+        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
     }
 
     //베이징마장에서의 규칙이 조금 다르기때문에 후를 할때 고려해주어야 한다.
     // 베이징 마장에서 후를 할때 zhung으로 후를 하면 점수를 2배 해주어야 한다.
     if(game.conf.mahjongtype == 0 && parseInt(hupai) == parseInt(game.SanWenPaiStartID)){
         fan *= 2;
+
+        Logger.log(`beijing mahjong = true ----- hupai = zhung`, roomId);
+        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
     }
 
-    if(game.conf.mahjongtype == 0){
-        if(!isTinged(seatData)){
+    if(game.conf.mahjongtype == 0){ // 베이징마장일때
+        // 만일 팅을 부르지 않고 후를 했을 때 이서이거나 표후이면 점수를 고려해주어야 한다.
+        // 즉:
+       if(!isTinged(seatData)){
             checkPiaoOrYiseInBeijing(seatData);
             if(seatData.canHunYiseTing){
                 fan *= 2;
+
+                Logger.log(`beijing mahjong = true ----- no HunYiseTing`, roomId);
+                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
             else if(seatData.canQingYiseTing){
                 fan *= 4;
+
+                Logger.log(`beijing mahjong = true ----- no QingYiseTing`, roomId);
+                Logger.log(`fan *= 4; (fan = ${fan})`, roomId);
             }
 
             if(seatData.canPiaoTing){
                 fan *= 2;
+
+                Logger.log(`beijing mahjong = true ----- no PiaoTing`, roomId);
+                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
         }
 
@@ -5746,9 +6004,15 @@ exports.hu = function(userId){
     if(game.huedByQidui){
         if(game.conf.qidui4){
             fan *= 4;
+
+            Logger.log(`huedByQidui = true ----- game.conf.qidui4 = true`, roomId);
+            Logger.log(`fan *= 4; (fan = ${fan})`, roomId);
         }
         else if(game.conf.qidui8){
             fan *= 8;
+
+            Logger.log(`huedByQidui = true ----- game.conf.qidui8 = true`, roomId);
+            Logger.log(`fan *= 8; (fan = ${fan})`, roomId);
         }
 
         // 먼저 커팅을 할때 2배 해주었으므로 치뚜이로 <후> 하였을 때 2로 나누어준다.
@@ -5759,25 +6023,36 @@ exports.hu = function(userId){
         if(game.chuPai != -1){
             if(seatData.countMap[game.chuPai] == 4){
                 fan *= 2;
+
+                Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
+                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
 
             for(let kk in seatData.countMap){
                 if(seatData.countMap[kk] == 4){
                     if(parseInt(kk) != parseInt(game.chuPai)){
                         fan *= 2;
+                        Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
+                        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
                     }
                 }
             }
         }
         else{
-            if(seatData.countMap[seatData.holds[seatData.holds.length - 1]] == 4){
+            if(seatData.countMap[game.mahjongs[game.currentIndex - 1]] == 4){
                 fan *= 2;
+
+                Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
+                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
 
             for(let kk in seatData.countMap){
                 if(seatData.countMap[kk] == 4){
-                    if(parseInt(kk) != parseInt(seatData.holds[seatData.holds.length - 1])){
+                    if(parseInt(kk) != parseInt(game.mahjongs[game.currentIndex - 1])){
                         fan *= 2;
+
+                        Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
+                        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
                     }
                 }
             }
@@ -5798,19 +6073,28 @@ exports.hu = function(userId){
     if(game.mahjongs.length - game.currentIndex <= 4){
         seatData.isHaiDiLao = true;
         fan *= 2;
+
+        Logger.log(`isHaiDiLao = true ----- 4 in latest`, roomId);
+        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
     }
 
     if(game.conf.hongdian && game.dice_paly_result){
         fan *= 2;
+
+        Logger.log(`hongdian = true`, roomId);
+        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
     }
 
     if(HunagZhuang[roomId]){
         fan *= 2;
+
+        Logger.log(`HunagZhuang = true`, roomId);
+        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
     }
 
     // 이것은 깡이나 깡팅을 한다음 후를 하였는가를 검사하는 부분이다. 깡을 한다음에는 패를 뒤에서 뜨는데 이렇게 뒤에서 뜨면 점수가 배로 오른다.
     // 이것을 검사하기 위하여 action의 배렬을 검사한다. 이런 경우는 쯔모일때만 가능.
-    if(isZimo){
+    // if(isZimo){
         let n = 0;
 
         let gameActionListLength = game.actionList.length;
@@ -5828,9 +6112,12 @@ exports.hu = function(userId){
                 game.actionList[gameActionListLength - n + 1] == ACTION_GANGTINGED)){
                 fan *= 2;
                 game.isGangHouHu = true;
+
+                Logger.log(`isGangHouHu = true`, roomId);
+                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
         }
-    }
+    // }
     /////////////////////////////////////////////////////////
 
 
@@ -5841,38 +6128,64 @@ exports.hu = function(userId){
     if(isZimo) {
         fan /= 2;
 
+        Logger.log(`---------- starting score in case of zimo ----------`, roomId);
+        Logger.log(`fan /= 2; (fan = ${fan})`, roomId);
+
         for(let otherSeat of game.gameSeats){
             if(otherSeat.seatIndex == seatData.seatIndex){
                 continue;
             }
+            Logger.log(`otherSeat.userId = ${otherSeat.userId}`, roomId);
 
             let selfFan = calcSelfFan(seatData, otherSeat, game.huedByQidui);
+
+            Logger.log(`selfFan = ${selfFan}`, roomId);
 
             //실지 점수의 계산.
 
             let score = game.basic_score * selfFan * fan;
+
+            Logger.log(`score = ${score}`, roomId);
             // otherSeat.score -= score;
              otherSeat.levelScore -= score;
 
+            Logger.log(`otherSeat.levelScore = ${otherSeat.levelScore}`, roomId);
+
             // seatData.score += score;
             seatData.levelScore += score;
+
+            Logger.log(`levelScore of hued man = ${seatData.levelScore}`, roomId);
         }
     }
     else{
+        Logger.log(`---------- starting score in case of dianpo ----------`, roomId);
+
         let otherSeat = game.gameSeats[game.turn];
 
+        Logger.log(`otherSeat.userId = ${otherSeat.userId}`, roomId);
+
         let selfFan = calcSelfFan(seatData, otherSeat, game.huedByQidui);
+
+        Logger.log(`selfFan = ${selfFan}`, roomId);
 
         //실지 점수의 계산.
 
         let score = game.basic_score * selfFan * fan;
 
+        Logger.log(`score = ${score}`, roomId);
+
         // otherSeat.score -= score;
         otherSeat.levelScore -= score;
 
+        Logger.log(`otherSeat.levelScore = ${otherSeat.levelScore}`, roomId);
+
         // seatData.score += score;
         seatData.levelScore += score;
+
+        Logger.log(`levelScore of hued man = ${seatData.levelScore}`, roomId);
     }
+
+    Logger.log(`******* end calculation hu score (userID: ${seatData.userId}) **************`, roomId);
 
     let resultScores = [];
     let resultLevelScores = [];

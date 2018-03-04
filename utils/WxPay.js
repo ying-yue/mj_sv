@@ -6,8 +6,8 @@ var xml2js = require('xml2js');
 
 var WxPayConfig = {
     //↓↓↓↓↓↓↓↓↓↓请在这里配置您的基本信息↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-    appid: "wxd3be4a8b412484c9",
-    appsecret: "df5fdb7d17a725e01592894f4d7f1e7e",
+    appid: "wxfc530321fb1ee1c2",
+    appsecret: "baa7d1598bc0dc7b051ed7e31236fd62",
     mchID: "1486610082",
     apikey: "df5fdb7d17a725e01592894f4d7f1e7e",
     notify_url: "http://39.108.213.109:9001/weixin/WxPay_notify"

@@ -12,6 +12,9 @@ function query(sql,callback){
         if(err){
             callback(err,null,null);
         }else{
+            console.log('------------------SQL CONTENT!---------------');
+            console.log(sql);
+            console.log('---------------------------------------------')
             conn.query(sql,function(qerr,vals,fields){
                 //释放连接
                 conn.release();
@@ -29,7 +32,7 @@ exports.init = function(config){
         password: config.PSWD,
         database: config.DB,
         port: config.PORT,
-    });
+});
 };
 
 exports.is_account_exist = function(account,callback){
@@ -152,7 +155,7 @@ exports.get_user_data = function(account,callback){
             callback(null);
             return;
         }
-        // rows[0].name = crypto.fromBase64(rows[0].name);
+        rows[0].name = crypto.fromBase64(rows[0].name);
         callback(rows[0]);
     });
 };
@@ -175,7 +178,7 @@ exports.get_user_data_by_userid = function(userid,callback){
             callback(null);
             return;
         }
-        // rows[0].name = crypto.fromBase64(rows[0].name);
+        rows[0].name = crypto.fromBase64(rows[0].name);
         callback(rows[0]);
     });
 };
@@ -252,6 +255,14 @@ exports.get_user_history = function(userId,callback){
         else{
             // console.log(history.length);
             history = JSON.parse(history);
+            for(let i = 0; i < history.length; ++i){
+                let history_item = history[i];
+
+                for(let j = 0; j < history_item.seats.length; ++j){
+                    let history_item_seat = history_item.seats[j];
+                    history_item_seat.name = crypto.fromBase64(history_item_seat.name);
+                }
+            }
             callback(history);
         }
     });
@@ -340,8 +351,8 @@ exports.create_user = function(account,name,coins,gems,sex,headimg,callback){
     else{
         headimg = 'null';
     }
-    // name = name;
-    // name = crypto.toBase64(name);
+    // name = "충구기\xF0\x9F\x8E\xB4";
+    name = crypto.toBase64(name);
     var sql = 'INSERT INTO t_users(account,name,coins,gems,sex,headimg,history) VALUES("{0}","{1}",{2},{3},{4},{5},"")';
     sql = sql.format(account,name,coins,gems,sex,headimg);
     // console.log(sql);
@@ -435,7 +446,7 @@ exports.update_user_info = function(userid,name,headimg,sex,callback){
     else{
         headimg = 'null';
     }
-    // name = crypto.toBase64(name);
+    name = crypto.toBase64(name);
     var sql = 'UPDATE t_users SET name="{0}",headimg={1},sex={2} WHERE account="{3}"';
     sql = sql.format(name,headimg,sex,userid);
     // console.log(sql);
@@ -460,7 +471,7 @@ exports.get_user_base_info = function(userid,callback){
         if (err) {
             throw err;
         }
-        // rows[0].name = crypto.fromBase64(rows[0].name);
+        rows[0].name = crypto.fromBase64(rows[0].name);
         callback(rows[0]);
     });
 };
@@ -571,7 +582,7 @@ exports.get_room_uuid = function(roomId,callback){
 exports.update_seat_info = function(roomId,seatIndex,userId,icon,name,callback){
     callback = callback == null? nop:callback;
     var sql = 'UPDATE t_rooms SET user_id{0} = {1},user_icon{0} = "{2}",user_name{0} = "{3}" WHERE id = "{4}"';
-    // name = crypto.toBase64(name);
+    name = crypto.toBase64(name);
     sql = sql.format(seatIndex,userId,icon,name,roomId);
     //console.log(sql);
     query(sql,function(err,row,fields){
@@ -674,10 +685,10 @@ exports.get_room_data = function(roomId,callback){
             throw err;
         }
         if(rows.length > 0){
-            // rows[0].user_name0 = crypto.fromBase64(rows[0].user_name0);
-            // rows[0].user_name1 = crypto.fromBase64(rows[0].user_name1);
-            // rows[0].user_name2 = crypto.fromBase64(rows[0].user_name2);
-            // rows[0].user_name3 = crypto.fromBase64(rows[0].user_name3);
+            rows[0].user_name0 = crypto.fromBase64(rows[0].user_name0);
+            rows[0].user_name1 = crypto.fromBase64(rows[0].user_name1);
+            rows[0].user_name2 = crypto.fromBase64(rows[0].user_name2);
+            rows[0].user_name3 = crypto.fromBase64(rows[0].user_name3);
             callback(rows[0]);
         }
         else{

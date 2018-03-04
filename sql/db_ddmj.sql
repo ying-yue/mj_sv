@@ -12,7 +12,7 @@ CREATE TABLE `t_accounts` (
   `account` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   PRIMARY KEY (`account`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 #
 # Data for table "t_accounts"
@@ -151,7 +151,7 @@ CREATE TABLE `t_message` (
   `msg` varchar(1024) NOT NULL,
   `version` varchar(32) NOT NULL,
   PRIMARY KEY (`type`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
 
 #
 # Data for table "t_message"
@@ -220,7 +220,7 @@ CREATE TABLE `t_rooms` (
   PRIMARY KEY (`uuid`),
   UNIQUE KEY `uuid` (`uuid`),
   UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 #
 # Data for table "t_rooms"
@@ -247,7 +247,7 @@ CREATE TABLE `t_users` (
   `charge_amount` float NOT NULL DEFAULT '0',
   PRIMARY KEY (`userid`),
   UNIQUE KEY `account` (`account`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4;
 
 #
 # Data for table "t_users"

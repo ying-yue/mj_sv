@@ -87,32 +87,6 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 		return;
 	}
 
-	// if(roomConf.difen < 0 || roomConf.difen > DI_FEN.length){
-	// 	callback(1,null);
-	// 	return;
-	// }
-    //
-	// if(roomConf.zimo < 0 || roomConf.zimo > 2){
-	// 	callback(1,null);
-	// 	return;
-	// }
-    //
-	// if(roomConf.zuidafanshu < 0 || roomConf.zuidafanshu > MAX_FAN.length){
-	// 	callback(1,null);
-	// 	return;
-	// }
-    //
-	// if(roomConf.jushuxuanze < 0 || roomConf.jushuxuanze > JU_SHU.length){
-	// 	callback(1,null);
-	// 	return;
-	// }
-	
-	// let cost = JU_SHU_COST[roomConf.jushuxuanze];
-	// if(cost > gems){
-	// 	callback(2222,null);
-	// 	return;
-	// }
-
 	let fnCreate = function(){
 		let roomId = generateRoomId();
 		if(rooms[roomId] != null || creatingRooms[roomId] != null){
@@ -129,13 +103,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 				else{
 					let createTime = Math.ceil(Date.now()/1000);
 					let baseScore = 2;
-                    // let baseScore = GANG_FEN[roomConf.gangfen];
-					// if(roomConf.hongdian){
-					// 	baseScore = GANG_FEN[roomConf.gangfen] * 2
-					// }
-					// else{
-                     //    baseScore = GANG_FEN[roomConf.gangfen]
-					// }
+
 					let roomInfo = {
 						uuid:"",
 						id:roomId,
@@ -156,17 +124,8 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
                             yise:roomConf.yise,
                             gangfen:roomConf.gangfen,
                             tinghoufeigang:roomConf.tinghoufeigang,
-                            // budaipihu:roomConf.budaipihu,
-                            // budaichi:roomConf.budaichi,
                             bubaibalzhung:roomConf.bubaibalzhung,
                             mahjongtype: roomConf.mahjongtype,
-                            // zimo:roomConf.zimo,
-						    // jiangdui:roomConf.jiangdui,
-						    // hsz:roomConf.huansanzhang,
-						    // dianganghua:parseInt(roomConf.dianganghua),
-						    // menqing:roomConf.menqing,
-						    // tiandihu:roomConf.tiandihu,
-						    // maxFan:MAX_FAN[roomConf.zuidafanshu],
 						    creator:creator,
 						}
 					};

@@ -4,8 +4,8 @@ let path = require("path");
 const LOG_CONSOLE_TYPE = 0;
 const LOG_FILE_TYPE = 1;
 
-let logType = LOG_CONSOLE_TYPE;
-// let logType = LOG_FILE_TYPE;
+// let logType = LOG_CONSOLE_TYPE;
+let logType = LOG_FILE_TYPE;
 
 Date.prototype.Format = function (fmt) {
     let o = {

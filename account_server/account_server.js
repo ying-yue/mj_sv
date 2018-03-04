@@ -30,7 +30,7 @@ app.all('*', function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "X-Requested-With");
     res.header("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS");
-    res.header("X-Powered-By",' 3.2.1')
+    res.header("X-Powered-By",' 3.2.1');
     res.header("Content-Type", "application/json;charset=utf-8");
     next();
 });
@@ -68,7 +68,7 @@ app.get('/register',function(req,res){
 app.get('/get_version',function(req,res){
 	var ret = {
 		version:config.VERSION,
-	}
+	};
 	send(res,ret);
 });
 
@@ -77,7 +77,8 @@ app.get('/get_serverinfo',function(req,res){
 		version:config.VERSION,
 		hall:hallAddr,
 		appweb:config.APP_WEB,
-	}
+		isReviewStatus:2,
+	};
 	send(res,ret);
 });
 
@@ -119,12 +120,12 @@ app.get('/auth',function(req,res){
 
 var appInfo = {
     Android:{
-        appid:  "wx5610ab6bbb581108",
-        secret: "abfaef60aa28e3f4205f3bc6f151a706"
+        appid:  "wxfc530321fb1ee1c2",
+        secret: "baa7d1598bc0dc7b051ed7e31236fd62"
     },
     iOS:{
-        appid:  "wx5610ab6bbb581108",
-        secret: "abfaef60aa28e3f4205f3bc6f151a706"
+        appid:  "wxfc530321fb1ee1c2",
+        secret: "baa7d1598bc0dc7b051ed7e31236fd62"
     }
 };
 

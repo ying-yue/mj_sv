@@ -1,6 +1,6 @@
-﻿let HALL_IP = "192.168.1.20";
+﻿// let HALL_IP = "192.168.1.10";
 // let HALL_IP = "192.168.1.49";
-// let HALL_IP = "49.79.230.74";
+let HALL_IP = "61.147.199.192";
 // let HALL_IP = "127.0.0.1";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
@@ -32,7 +32,7 @@ exports.account_server = function(){
 		DEALDER_API_IP:LOCAL_IP,
 		DEALDER_API_PORT:12581,
 		VERSION:'20161227',
-		APP_WEB:'http://fir.im/2f17',
+		APP_WEB:'http://49.79.224.152:81/link/link.htm',
 	};
 };
 
