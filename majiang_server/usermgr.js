@@ -85,7 +85,7 @@ exports.broacastInRoom = function(event,data,sender,includingSender){
         return;
     }
 
-    Logger.log(`Sent message(${event}) to all users except to the user(userID-${sender}).`, roomId);
+    // Logger.log(`Sent message(${event}) to all users except to the user(userID-${sender}).`, roomId);
 
     for(let i = 0; i < roomInfo.seats.length; ++i){
         let rs = roomInfo.seats[i];
@@ -96,6 +96,7 @@ exports.broacastInRoom = function(event,data,sender,includingSender){
         }
         let socket = userList[rs.userId];
         if(socket != null){
+            Logger.log(`Sent message(${event}) to all users except to the user(userID-${rs.userId}).`, roomId);
             socket.emit(event,data);
         }
     }

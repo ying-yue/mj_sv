@@ -8,8 +8,16 @@ let userLocation = {};
 let totalRooms = 0;
 
 let REN_SHU = [4,3,3,2];
-let JU_SHU = [4,8,16];
+let JU_SHU = [8,12,16];
 let GANG_FEN = [1,2,4];
+
+let ROOM_STATE_EMPTY = 0;
+let ROOM_STATE_GAME_STSRTING = 1;
+let ROOM_STATE_SUCCESS_FINISHED = 2;
+let ROOM_STATE_STRONG = 3;
+let ROOM_STATE_UNSUCCESS_FINISHED = 4;
+let ROOM_STATE_CREATED = 5;
+let ROOM_STATE_FAILD = 6;
 
 let SeatCount = 0;
 
@@ -73,7 +81,6 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 		roomConf.type == null
 		|| roomConf.jushu == null
 		|| roomConf.renshu == null
-		|| roomConf.gangfen == null
 		|| roomConf.hongdian == null
 		|| roomConf.piaohu == null
 		|| roomConf.qidui4 == null
@@ -81,8 +88,22 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 		|| roomConf.yise == null
 		|| roomConf.tinghoufeigang == null
         || roomConf.mahjongtype == null
-        // || roomConf.budaichi == null
+        || roomConf.jewel_count == null
         || roomConf.bubaibalzhung == null){
+
+		console.log('roomConf.type: ' + roomConf.type);
+        console.log('roomConf.jushu: ' + roomConf.jushu);
+        console.log('roomConf.renshu: ' + roomConf.renshu);
+        console.log('roomConf.hongdian: ' + roomConf.hongdian);
+        console.log('roomConf.piaohu: ' + roomConf.piaohu);
+        console.log('roomConf.qidui4: ' + roomConf.qidui4);
+        console.log('roomConf.qidui8: ' + roomConf.qidui8);
+        console.log('roomConf.yise: ' + roomConf.yise);
+        console.log('roomConf.tinghoufeigang: ' + roomConf.tinghoufeigang);
+        console.log('roomConf.mahjongtype: ' + roomConf.mahjongtype);
+        console.log('roomConf.jewel_count: ' + roomConf.jewel_count);
+        console.log('roomConf.bubaibalzhung: ' + roomConf.bubaibalzhung);
+
 		callback(1,null);
 		return;
 	}
@@ -122,10 +143,10 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
                             qidui4:roomConf.qidui4,
                             qidui8:roomConf.qidui8,
                             yise:roomConf.yise,
-                            gangfen:roomConf.gangfen,
                             tinghoufeigang:roomConf.tinghoufeigang,
                             bubaibalzhung:roomConf.bubaibalzhung,
                             mahjongtype: roomConf.mahjongtype,
+							jewel_count: roomConf.jewel_count,
 						    creator:creator,
 						}
 					};
@@ -190,7 +211,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 	fnCreate();
 };
 
-exports.destroy = function(roomId){
+exports.destroy = function(roomId, is_success){
 	let roomInfo = rooms[roomId];
 	if(roomInfo == null){
 		return;
@@ -206,7 +227,12 @@ exports.destroy = function(roomId){
 	
 	delete rooms[roomId];
 	totalRooms--;
-	db.delete_room(roomId);
+	// db.delete_room(roomId);
+	var room_state = ROOM_STATE_SUCCESS_FINISHED;
+	if(!is_success){
+		room_state = ROOM_STATE_UNSUCCESS_FINISHED;
+	}
+    db.update_room_data({roomId: roomId, is_full: 1, room_state: room_state});
 };
 
 exports.getTotalRooms = function(){

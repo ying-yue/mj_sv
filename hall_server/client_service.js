@@ -95,7 +95,7 @@ app.get('/create_user',function(req,res){
 	var account = req.query.account;
 	var name = req.query.name;
 	var coins = 1000;
-	var gems = 3;
+	var gems = 20;
 	// console.log(name);
 
 	db.is_user_exist(account,function(ret){
@@ -220,7 +220,7 @@ app.get('/create_private_room',function(req,res){
 							};
 							ret.sign = crypto.md5(ret.roomid + ret.token + ret.time + config.ROOM_PRI_KEY);
 
-							Logger.info(`Room ${roomId} is created by user-${name}(userID-${userId})`, roomId)
+							Logger.info(`Room ${roomId} is created by user-${name}(userID-${userId})`, roomId);
 							//방이 성과적으로 창조되였으므로 방을 창조한 사용자의 gems에서 방을 창조하는데 필요한 gem의 개수를 던다.
                             // db.cost_gems(userId, neededGemsGorCreatingRoom);
 							//////////////////////////////////////////////////////////
@@ -418,6 +418,22 @@ var apiBuyGoods = function (req, res) {
         });
     });
 };
+
+app.get('/get_unfull_room',function(req, res){
+    db.get_unfull_room(function(record){
+        if (record == null) {
+            http.send(res, 1, "no exist unfull room!");
+            return;
+        }
+
+        var ret = {
+            roomId: record.id
+        };
+
+        http.send(res, 0, "ok", ret);
+    });
+});
+
 
 app.get('/api/buy_goods', apiBuyGoods);
 app.post('/weixin/WxPay_notify', WxPay.notify);

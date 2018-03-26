@@ -182,7 +182,7 @@ exports.enterRoom = function(userId,name,roomId,fnCallback){
 		else{
 			fnCallback(-1,null);					
 		}
-	}
+	};
 
 	db.get_room_addr(roomId,function(ret,ip,port){
 		if(ret){

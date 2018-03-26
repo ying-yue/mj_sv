@@ -253,7 +253,7 @@ exports.get_user_history = function(userId,callback){
             callback(null);
         }
         else{
-            // console.log(history.length);
+            console.log(history);
             history = JSON.parse(history);
             for(let i = 0; i < history.length; ++i){
                 let history_item = history[i];
@@ -275,9 +275,24 @@ exports.update_user_history = function(userId,history,callback){
         return;
     }
 
+    if(history == null || history == ""){
+        callback(false);
+    }
+    else {
+        console.log(history);
+        for (let i = 0; i < history.length; ++i) {
+            let history_item = history[i];
+
+            for (let j = 0; j < history_item.seats.length; ++j) {
+                let history_item_seat = history_item.seats[j];
+                history_item_seat.name = crypto.toBase64(history_item_seat.name);
+            }
+        }
+    }
+
     history = JSON.stringify(history);
     var sql = 'UPDATE t_users SET roomid = null, history = \'' + history + '\' WHERE userid = "' + userId + '"';
-    //console.log(sql);
+    console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(false);
@@ -594,11 +609,28 @@ exports.update_seat_info = function(roomId,seatIndex,userId,icon,name,callback){
             callback(true);
         }
     });
-}
+};
+
+exports.update_room_data = function(room_data,callback){
+    callback = callback == null? nop:callback;
+    var sql = 'UPDATE t_rooms SET is_full = {0}, room_state = {1} WHERE id = "{2}"';
+    // name = crypto.toBase64(name);
+    sql = sql.format(room_data.is_full, room_data.room_state, room_data.roomId);
+    //console.log(sql);
+    query(sql,function(err,row,fields){
+        if(err){
+            callback(false);
+            throw err;
+        }
+        else{
+            callback(true);
+        }
+    });
+};
 
 exports.update_num_of_turns = function(roomId,numOfTurns,callback){
     callback = callback == null? nop:callback;
-    var sql = 'UPDATE t_rooms SET num_of_turns = {0} WHERE id = "{1}"'
+    var sql = 'UPDATE t_rooms SET num_of_turns = {0} WHERE id = "{1}"';
     sql = sql.format(numOfTurns,roomId);
     //console.log(sql);
     query(sql,function(err,row,fields){
@@ -685,10 +717,22 @@ exports.get_room_data = function(roomId,callback){
             throw err;
         }
         if(rows.length > 0){
-            rows[0].user_name0 = crypto.fromBase64(rows[0].user_name0);
-            rows[0].user_name1 = crypto.fromBase64(rows[0].user_name1);
-            rows[0].user_name2 = crypto.fromBase64(rows[0].user_name2);
-            rows[0].user_name3 = crypto.fromBase64(rows[0].user_name3);
+            if(rows[0].user_name0){
+                rows[0].user_name0 = crypto.fromBase64(rows[0].user_name0);
+            }
+            if(rows[0].user_name1){
+                rows[0].user_name1 = crypto.fromBase64(rows[0].user_name1);
+            }
+            if(rows[0].user_name2){
+                rows[0].user_name2 = crypto.fromBase64(rows[0].user_name2);
+            }
+            if(rows[0].user_name3){
+                rows[0].user_name3 = crypto.fromBase64(rows[0].user_name3);
+            }
+            // rows[0].user_name0 = crypto.fromBase64(rows[0].user_name0);
+            // rows[0].user_name1 = crypto.fromBase64(rows[0].user_name1);
+            // rows[0].user_name2 = crypto.fromBase64(rows[0].user_name2);
+            // rows[0].user_name3 = crypto.fromBase64(rows[0].user_name3);
             callback(rows[0]);
         }
         else{
@@ -899,5 +943,27 @@ exports.get_message = function(type,version,callback){
         }
     });
 };
+
+exports.get_unfull_room = function(callback){
+    callback = callback == null? nop:callback;
+
+    var sql = 'SELECT * FROM t_rooms WHERE is_full IS NULL OR is_full <> 1';
+
+    query(sql, function(err, rows, fields) {
+        if(err){
+            callback(false);
+            throw err;
+        }
+        else{
+            if(rows.length > 0){
+                callback(rows[0]);
+            }
+            else{
+                callback(null);
+            }
+        }
+    });
+};
+
 
 exports.query = query;

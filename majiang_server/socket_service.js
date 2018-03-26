@@ -404,7 +404,7 @@ exports.start = function(config,mgr){
 
 			userMgr.broacastInRoom('dispress_push',{},userId,true);
 			userMgr.kickAllInRoom(roomId);
-			roomMgr.destroy(roomId);
+			roomMgr.destroy(roomId, false);
 			socket.disconnect();
 		});
 
@@ -431,7 +431,7 @@ exports.start = function(config,mgr){
 			}
 
 			var ret = socket.gameMgr.dissolveRequest(roomId,userId);
-			if(ret != null){
+			if(ret != null && ret.error_code != 1){
 				var dr = ret.dr;
 				var ramaingTime = (dr.endTime - Date.now()) / 1000;
 				var data = {
@@ -443,13 +443,17 @@ exports.start = function(config,mgr){
 				userMgr.broacastInRoom('dissolve_notice_push',data,userId,true);
 			}
 			else{
-                console.log(6);
+                if(ret.error_code == 1){
+                    userMgr.sendMsg(userId, 'dissolve_notice_push', {error_code: 1})
+                }
 			}
 
 		});
 
 		socket.on('dissolve_agree',function(data){
 			var userId = socket.userId;
+
+
 
 			if(userId == null){
 				return;
@@ -467,7 +471,7 @@ exports.start = function(config,mgr){
 				var data = {
 					time:ramaingTime,
 					states:dr.states
-				}
+				};
 				userMgr.broacastInRoom('dissolve_notice_push',data,userId,true);
 
 				var doAllAgree = true;

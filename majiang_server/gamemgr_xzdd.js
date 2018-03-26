@@ -25,6 +25,15 @@ let ACTION_YISE_GANGFORGANGTING = 99;
 let ACTION_SCORE_CHANGE = 22;
 let ACTION_BASE_INFO = 33;
 
+let ROOM_STATE_EMPTY = 0;
+let ROOM_STATE_GAME_STSRTING = 1;
+let ROOM_STATE_SUCCESS_FINISHED = 2;
+let ROOM_STATE_STRONG = 3;
+let ROOM_STATE_UNSUCCESS_FINISHED = 4;
+let ROOM_STATE_CREATED = 5;
+let ROOM_STATE_FAILD = 6;
+
+
 
 
 
@@ -115,6 +124,11 @@ function mopai(game,seatIndex) {
     let data = game.gameSeats[seatIndex];
     let mahjongs = data.holds;
     let pai = game.mahjongs[game.currentIndex];
+
+    if(pai == -1){
+        return pai;
+    }
+
     mahjongs.push(pai);
 
     //统计牌的数目 ，用于快速判定（空间换时间）
@@ -2572,44 +2586,47 @@ function doUserMoPai(game){
 
     if(!isTinged(turnSeat)){
         let p = game.mahjongs[game.currentIndex];
+        if(p != null && p != -1){
+            turnSeat.holds.push(parseInt(p));
+            turnSeat.countMap[p]++;
 
-        turnSeat.holds.push(parseInt(p));
-        turnSeat.countMap[p]++;
+            checkCanHu(game,turnSeat, p);
+            if(turnSeat.canHu){
+                turnSeat.canChuPai = true;
 
-        checkCanHu(game,turnSeat, p);
-        if(turnSeat.canHu){
-            turnSeat.canChuPai = true;
+                if(calcPengCount(turnSeat) == 4) {
+                    //piaoting을 해야 후룰 할수 있다.
+                }
+                else{
+                    // turnSeat.countMap[p]--;
+                    // turnSeat.holds.pop();
 
-            if(calcPengCount(turnSeat) == 4) {
-                //piaoting을 해야 후룰 할수 있다.
+                    checkCanAnGang(game,turnSeat);
+                    checkCanJiaGang(game,turnSeat);
+
+                    recordGameAction(game,game.turn,ACTION_MOPAI,p);
+
+                    //通知前端新摸的牌
+                    // mopai(game,game.turn);
+                    userMgr.sendMsg(turnSeat.userId,'game_mopai_push',p);
+
+                    userMgr.broacastInRoom('game_chupai_push',turnSeat.userId,turnSeat.userId,true);
+
+                    //通知玩家做对应操作
+                    sendOperations(game,turnSeat,game.chuPai);
+                    game.currentIndex++;
+                    return;
+                }
+
+
             }
-            else{
-                // turnSeat.countMap[p]--;
-                // turnSeat.holds.pop();
 
-                checkCanAnGang(game,turnSeat);
-                checkCanJiaGang(game,turnSeat);
-
-                recordGameAction(game,game.turn,ACTION_MOPAI,p);
-
-                //通知前端新摸的牌
-                // mopai(game,game.turn);
-                userMgr.sendMsg(turnSeat.userId,'game_mopai_push',p);
-
-                userMgr.broacastInRoom('game_chupai_push',turnSeat.userId,turnSeat.userId,true);
-
-                //通知玩家做对应操作
-                sendOperations(game,turnSeat,game.chuPai);
-                game.currentIndex++;
-                return;
-            }
-
-
+            turnSeat.countMap[p]--;
+            turnSeat.holds.splice(turnSeat.holds.indexOf(p), 1);
+            turnSeat.tingMap = {};
         }
 
-        turnSeat.countMap[p]--;
-        turnSeat.holds.splice(turnSeat.holds.indexOf(p), 1);
-        turnSeat.tingMap = {};
+
     }
 
     let pai = mopai(game,game.turn);
@@ -2620,7 +2637,7 @@ function doUserMoPai(game){
     Logger.info(`User(userID: ${turnSeat.userId}) is mopai. mopai: ${pai}`, roomId);
 
     if(isTinged(turnSeat)){
-        turnSeat.tingPai = pai;
+            turnSeat.tingPai = pai;
     }
 
     //牌摸完了，结束
@@ -3389,25 +3406,36 @@ function store_single_history(userId,history){
 
 function store_history(roomInfo){
     let seats = roomInfo.seats;
-    let history = {
-        uuid:roomInfo.uuid,
-        id:roomInfo.id,
-        time:roomInfo.createTime,
-        seats:new Array(seats.length)
-    };
 
-    for(let i = 0; i < seats.length; ++i){
-        let rs = seats[i];
-        let hs = history.seats[i] = {};
-        hs.userid = rs.userId;
-        hs.name = rs.name;
-        hs.name = crypto.toBase64(rs.name);
-        hs.score = rs.score;
+
+    var history_array = [];
+
+    for(let j = 0; j < seats.length; ++j) {
+        let history = {
+            uuid: roomInfo.uuid,
+            id: roomInfo.id,
+            time: roomInfo.createTime,
+            seats: new Array(seats.length)
+        };
+        for (let i = 0; i < seats.length; ++i) {
+
+            let rs = seats[i];
+            let hs = history.seats[i] = {};
+            hs.userid = rs.userId;
+            hs.name = rs.name;
+            // hs.name = crypto.toBase64(rs.name);
+            hs.score = rs.score;
+        }
+        history_array.push(history);
     }
+    // var history_array = [];
+    // for(let i = 0; i < seats.length; ++i){
+    //     history_array.push(history);
+    // }
 
     for(let i = 0; i < seats.length; ++i){
         let s = seats[i];
-        store_single_history(s.userId,history);
+        store_single_history(s.userId,history_array[i]);
     }
 }
 
@@ -3440,6 +3468,10 @@ function store_game(game,callback){
 //开始新的一局
 exports.begin = function(roomId) {
     let roomInfo = roomMgr.getRoom(roomId);
+
+    Logger.log('\n****************------New game is starting!-------**************', roomId);
+    Logger.log(`****************------Game Index ${roomInfo.numOfGames}-------**************\n`, roomId);
+
     if(roomInfo == null){
         return;
     }
@@ -3803,6 +3835,11 @@ exports.begin = function(roomId) {
     }
 
     recordGameAction(game,-1,ACTION_SCORE_CHANGE,scoreList);
+
+
+    var room_data = {roomId: roomId, is_full: 1, room_state: ROOM_STATE_GAME_STSRTING};
+    db.update_room_data(room_data);
+
 };
 
 exports.huanSanZhang = function(userId,p1,p2,p3){
@@ -3992,6 +4029,71 @@ exports.dice_start = function(userId){
         userMgr.broacastInRoom('dice_play_push',{renshu: roomInfo.conf.renshu, dicePlayed: false, numList1: diceNumberList1[roomId], numList2: diceNumberList2[roomId]},userId,true);
         // }
         dicePlayed[roomId] = true;
+
+
+
+        let seatData = gameSeatsOfUsers[userId];
+        if(seatData == null){
+            Logger.error(`can't find user game data.`, roomId);
+            return;
+        }
+
+        let game = seatData.game;
+
+
+        construct_game_base_info(game);
+
+        // let arr = [];
+        // if(game.seatCount == 2){
+        //     arr = [1,1];
+        // }
+        // else if(game.seatCount == 3){
+        //     arr = [1,1,1];
+        // }
+        // else if(game.seatCount == 4){
+        //     arr = [1,1,1,1];
+        // }
+        //
+        // for(let i = 0; i < game.gameSeats.length; ++i){
+        //     arr[i] = game.gameSeats[i].que;
+        // }
+        // userMgr.broacastInRoom('game_dingque_finish_push',arr,seatData.userId,true);
+        userMgr.broacastInRoom('game_playing_push',null,seatData.userId,true);
+
+
+
+        //进行听牌检查
+        for(let i = 0; i < game.gameSeats.length; ++i){
+            let duoyu = -1;
+            let gs = game.gameSeats[i];
+            if(gs.holds.length == 14){
+                duoyu = gs.holds.pop();
+                gs.countMap[duoyu] -= 1;
+            }
+            checkCanTingPai(game,gs);
+            if(duoyu >= 0){
+                gs.holds.push(parseInt(duoyu));
+                gs.countMap[duoyu] ++;
+            }
+        }
+
+        let turnSeat = game.gameSeats[game.turn];
+        game.state = "playing";
+        //通知玩家出牌方
+        turnSeat.canChuPai = true;
+
+        Logger.log(`Sent ''game_chupai_push' to all users(in dingchu function).`, roomId);
+
+        userMgr.broacastInRoom('game_chupai_push',turnSeat.userId,turnSeat.userId,true);
+        //检查是否可以暗杠或者胡
+        //直杠
+        // checkCanAnGang(game,turnSeat);
+        // checkCanGangTongSeNanBeiAndGangBaiBalZung(turnSeat, turnSeat.holds[turnSeat.holds.length - 1]);
+
+        //检查胡 用最后一张来检查
+        checkCanHu(game,turnSeat,turnSeat.holds[turnSeat.holds.length - 1]);
+        //通知前端
+        sendOperations(game,turnSeat,game.chuPai);
     }
 };
 
@@ -4265,6 +4367,13 @@ exports.chuPai = function(userId,pai){
         if(ddd.canPeng){
             isExistingShunzi = ddd.canPeng;
             seatIndexWithPengOrGang = i;
+
+            Logger.log(`Checking whether this user can do 'chi' because this user can do 'peng'. current user id: ${ddd.userId}`, roomId);
+
+            checkCanShunZi(game, ddd, pai);
+            if(ddd.canShunZi){
+                Logger.log(`------ this user can also do 'chi' with 'peng'. current user id: ${ddd.userId}, available pais:${ddd.paisAvailableShunzi}`, roomId);
+            }
             break;
         }
 
@@ -4273,11 +4382,22 @@ exports.chuPai = function(userId,pai){
             isExistingShunzi = ddd.canGang;
             seatIndexWithPengOrGang = i;
             ddd.gangPai.pop();
+
+            Logger.log(`Checking whether this user can do 'chi' because this user can do 'minggang'. current user id: ${ddd.userId}`, roomId);
+
+            checkCanShunZi(game, ddd, pai);
+
+            if(ddd.canShunZi){
+                Logger.log(`------ this user can also do 'chi' with 'peng'. current user id: ${ddd.userId}, available pais:${ddd.paisAvailableShunzi}`, roomId);
+            }
+
             break;
         }
     }
 
     Logger.log(`Finish checking whether some user can do 'peng' or 'gang'. `, roomId);
+
+    var seatWithActions = null;
 
     for(let i = 0; i < game.gameSeats.length; ++i){
         //玩家自己不检查
@@ -4353,12 +4473,23 @@ exports.chuPai = function(userId,pai){
         }
 
         if(hasOperations(ddd)){
-            Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
-            userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
-            seatData.folds.push(game.chuPai);
-            sendOperations(game,ddd,game.chuPai);
-            hasActions = true;
+            seatWithActions = ddd;
+            break;
+            // Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
+            // userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
+            // seatData.folds.push(game.chuPai);
+            // sendOperations(game,ddd,game.chuPai);
+            // hasActions = true;
         }
+    }
+
+
+    if(seatWithActions != null && hasOperations(seatWithActions)){
+        Logger.log(`Sent 'guo_notify_push' to all users because some user have action. Seat index: ${seatData.seatIndex}`, roomId);
+        userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
+        seatData.folds.push(game.chuPai);
+        sendOperations(game,seatWithActions,game.chuPai);
+        hasActions = true;
     }
 
     //如果没有人有操作，则向下一家发牌，并通知他出牌
@@ -6299,46 +6430,46 @@ exports.guo = function(userId){
 
 
     //펑이 취소되였을때 슌찌가 있으면 그것을 실행한다
-    if(seatData.canGang && seatData.countMap[game.chuPai] == 3){
-        Logger.log(`user canceled peng. userID: ${userId}, seatIndex: ${seatData.seatIndex}`, roomId);
-
-        seatData.canGang = false;
-
-        let index = game.turn + 1;
-        index %= game.seatCount;
-        if(checkCanShunZi(game, game.gameSeats[index], game.TARGETPAI)){
-            if(hasOperations(game.gameSeats[index])){
-                sendOperations(game,game.gameSeats[index],game.chuPai);
-                return;
-            }
-
-        }
-
-
-
-    }
+    // if(seatData.canGang && seatData.countMap[game.chuPai] == 3){
+    //     Logger.log(`user canceled peng. userID: ${userId}, seatIndex: ${seatData.seatIndex}`, roomId);
+    //
+    //     seatData.canGang = false;
+    //
+    //     let index = game.turn + 1;
+    //     index %= game.seatCount;
+    //     if(checkCanShunZi(game, game.gameSeats[index], game.TARGETPAI)){
+    //         if(hasOperations(game.gameSeats[index])){
+    //             sendOperations(game,game.gameSeats[index],game.chuPai);
+    //             return;
+    //         }
+    //
+    //     }
+    //
+    //
+    //
+    // }
 
 
     if(seatData.canPeng){
-        Logger.log(`user canceled peng. userID: ${userId}, seatIndex: ${seatData.seatIndex}`, roomId);
-
-        seatData.canPeng = false;
-        if(game.TARGETPAI == null){
-            Logger.error(`There is no TARGETPAI. so, you did not peng. userID: ${userId}`, roomId);
-        }
-        else{
-
-            let index = game.turn + 1;
-            index %= game.seatCount;
-            if(checkCanShunZi(game, game.gameSeats[index], game.TARGETPAI)){
-                if(hasOperations(game.gameSeats[index])){
-                    sendOperations(game,game.gameSeats[index],game.chuPai);
-                }
-                game.TARGETPAI = null;
-                return;
-            }
-            game.TARGETPAI = null;
-        }
+        // Logger.log(`user canceled peng. userID: ${userId}, seatIndex: ${seatData.seatIndex}`, roomId);
+        //
+        // seatData.canPeng = false;
+        // if(game.TARGETPAI == null){
+        //     Logger.error(`There is no TARGETPAI. so, you did not peng. userID: ${userId}`, roomId);
+        // }
+        // else{
+        //
+        //     let index = game.turn + 1;
+        //     index %= game.seatCount;
+        //     if(checkCanShunZi(game, game.gameSeats[index], game.TARGETPAI)){
+        //         if(hasOperations(game.gameSeats[index])){
+        //             sendOperations(game,game.gameSeats[index],game.chuPai);
+        //         }
+        //         game.TARGETPAI = null;
+        //         return;
+        //     }
+        //     game.TARGETPAI = null;
+        // }
     }
     else if(seatData.canShunZi){
         seatData.canShunZi = false;
@@ -6413,6 +6544,19 @@ exports.doDissolve = function(roomId){
 };
 
 exports.dissolveRequest = function(roomId,userId){
+    let seatData = gameSeatsOfUsers[userId];
+    if(seatData == null){
+        Logger.error(`can't find user game data. userID: ${userId}`, roomId);
+        return;
+    }
+    let game = seatData.game;
+
+    if(userId != game.conf.creator){
+        return {error_code: 1}
+    }
+
+
+
     let roomInfo = roomMgr.getRoom(roomId);
     if(roomInfo == null){
         return null;
@@ -6450,6 +6594,7 @@ exports.dissolveRequest = function(roomId,userId){
 };
 
 exports.dissolveAgree = function(roomId,userId,agree){
+
     let roomInfo = roomMgr.getRoom(roomId);
     if(roomInfo == null){
         return null;
