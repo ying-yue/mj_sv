@@ -10,6 +10,7 @@ exports.start = function(config,mgr){
 	io = require('socket.io')(config.CLIENT_PORT);
 
 	io.sockets.on('connection',function(socket){
+
 		socket.on('login',function(data){
 			if(typeof(data) !== "object"){
                 data = JSON.parse(data);
@@ -61,6 +62,8 @@ exports.start = function(config,mgr){
 
 			userMgr.bind(userId,socket);
 			socket.userId = userId;
+
+            socket.is_connected = false;
 
 			//返回房间信息
 			var roomInfo = roomMgr.getRoom(roomId);
@@ -115,9 +118,18 @@ exports.start = function(config,mgr){
 
 
 			//玩家上线，强制设置为TRUE
-			socket.gameMgr.setReady(userId);
+			// socket.gameMgr.setReady(userId);
 
 			socket.emit('login_finished');
+
+
+            for(let i = 0; i < roomInfo.seats.length; ++i){
+                let rs = roomInfo.seats[i];
+
+                if(rs && rs.ready){
+                    userMgr.sendMsg(userId,'user_ready_push',{userid:rs.userId,ready:true});
+				}
+            }
 
 			if(roomInfo.dr != null){
 				var dr = roomInfo.dr;
@@ -512,17 +524,22 @@ exports.start = function(config,mgr){
 			if(!userId){
 				return;
 			}
-			var data = {
-				userid:userId,
-				online:false
-			};
 
-			//通知房间内其它玩家
-			userMgr.broacastInRoom('user_state_push',data,userId);
+            var data = {
+                userid:userId,
+                online:false
+            };
 
-			//清除玩家的在线信息
-			userMgr.del(userId);
-			socket.userId = null;
+            //通知房间内其它玩家
+            userMgr.broacastInRoom('user_state_push',data,userId);
+
+            //清除玩家的在线信息
+            userMgr.sendMsg(userId, 'socket_is_connected_notify');
+            userMgr.del(userId);
+            socket.userId = null;
+
+            console.log('send "socket_is_connected_notify": ' + userId);
+
 		});
 
 		socket.on('game_ping',function(data){

@@ -8,11 +8,11 @@ let userLocation = {};
 let totalRooms = 0;
 
 let REN_SHU = [4,3,3,2];
-let JU_SHU = [8,12,16];
+let JU_SHU = [4,8,12];
 let GANG_FEN = [1,2,4];
 
 let ROOM_STATE_EMPTY = 0;
-let ROOM_STATE_GAME_STSRTING = 1;
+let ROOM_STATE_GAME_STARTING = 1;
 let ROOM_STATE_SUCCESS_FINISHED = 2;
 let ROOM_STATE_STRONG = 3;
 let ROOM_STATE_UNSUCCESS_FINISHED = 4;
