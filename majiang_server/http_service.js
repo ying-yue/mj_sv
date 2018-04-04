@@ -111,14 +111,29 @@ app.get('/enter_room',function(req,res){
 	});
 });
 
-app.get('/ping',function(req,res){
-	var sign = req.query.sign;
-	var md5 = crypto.md5(config.ROOM_PRI_KEY);
-	if(md5 != sign){
-		return;
-	}
-	http.send(res,0,"pong");
+app.get('/get_rooms_ids',function(req,res){
+	roomMgr.get_rooms_ids(function (ret) {
+        http.send(res,0,'ok',{ret:ret});
+    });
+
 });
+
+app.get('/add_roominfo_in_rooms',function(req,res){
+    roomMgr.add_roominfo_in_rooms(req, function () {
+        http.send(res,0,'ok');
+    });
+
+});
+
+app.get('/ping',function(req,res){
+    var sign = req.query.sign;
+    var md5 = crypto.md5(config.ROOM_PRI_KEY);
+    if(md5 != sign){
+        return;
+    }
+    http.send(res,0,"pong");
+});
+
 
 app.get('/is_room_runing',function(req,res){
 	var roomId = req.query.roomid;

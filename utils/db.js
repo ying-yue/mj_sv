@@ -1,7 +1,17 @@
 var mysql=require("mysql");
 var crypto = require('./crypto');
 var logger = require('./logger');
+var Global = require('./Global');
 var pool = null;
+
+
+let ROOM_STATE_EMPTY = 0;
+let ROOM_STATE_GAME_STARTING = 1;
+let ROOM_STATE_SUCCESS_FINISHED = 2;
+let ROOM_STATE_STRONG = 3;
+let ROOM_STATE_UNSUCCESS_FINISHED = 4;
+let ROOM_STATE_CREATED = 5;
+let ROOM_STATE_FAILD = 6;
 
 function nop(a,b,c,d,e,f,g){
 
@@ -500,7 +510,15 @@ exports.is_room_exist = function(roomId,callback){
             throw err;
         }
         else{
-            callback(rows.length > 0);
+            var result = false;
+            if(rows.length > 0){
+                for(var i = 0; i < rows.length; ++i){
+                    if(parseInt(rows[i].room_state) != 0){
+                        result = true;
+                    }
+                }
+            }
+            callback(result);
         }
     });
 };
@@ -562,12 +580,12 @@ exports.get_room_id_of_user = function(userId,callback){
 
 exports.create_room = function(roomId,conf,ip,port,create_time,callback){
     callback = callback == null? nop:callback;
-    var sql = "INSERT INTO t_rooms(uuid,id,base_info,ip,port,create_time,num_of_turns,next_button,user_id0,user_icon0,user_name0,user_score0, \
+    var sql = "INSERT INTO t_rooms(uuid,id,dealer_id,base_info,ip,port,create_time,num_of_turns,next_button,user_id0,user_icon0,user_name0,user_score0, \
                                    user_id1, user_icon1,user_name1,user_score1,user_id2, user_icon2,user_name2,user_score2,user_id3, user_icon3,user_name3,user_score3)\
-                VALUES('{0}','{1}','{2}','{3}',{4},{5},0,0,0,'','',0,0,'','',0,0,'','',0,0,'','',0)";
+                VALUES('{0}','{1}', {2},'{3}','{4}',0,{6},0,0,0,'','',0,0,'','',0,0,'','',0,0,'','',0)";
     var uuid = Date.now() + roomId;
     var baseInfo = JSON.stringify(conf);
-    sql = sql.format(uuid,roomId,baseInfo,ip,port,create_time);
+    sql = sql.format(uuid,roomId, conf.dealer_id ,baseInfo,ip,port,create_time);
     // console.log(sql);
     query(sql,function(err,row,fields){
         if(err){
@@ -964,6 +982,315 @@ exports.get_unfull_room = function(callback){
         }
     });
 };
+
+///////终端管理相关函数
+exports.read_dealer_account = function(adminId, adminPwd, token, callback){
+    callback = callback == null? nop:callback;
+
+    if((adminId == null || adminPwd== null) && token == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_managers WHERE ';
+
+    if (token != null){
+        sql = sql + 'token="{0}"';
+        sql = sql.format(token);
+    } else {
+        sql = sql +'name="{0}" and password="{1}"';
+        sql = sql.format(adminId, adminPwd);
+    }
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        logger.log( rows);
+        for(var i = 0; i < rows.length; ++i){
+            rows[i].name = crypto.fromBase64(rows[i].name);
+            rows[i].weixin_id = crypto.fromBase64(rows[i].weixin_id);
+        }
+
+        callback(rows);
+    });
+};
+
+exports.update_token_managers = function(id,token){
+    if(id == null || token == null){
+        return false;
+    }
+
+    var sql = 'UPDATE t_managers SET token = "' + token +'" WHERE id = ' + id;
+    ////console.log(sql);
+    query(sql, function(err, rows, fields) {
+
+        if(err){
+            //console.log(ret.err);
+            return false;
+        }
+        else{
+            return true;
+        }
+        // if (err) {
+        //     callback(null);
+        //     logger.log(err);
+        //     throw err;
+        // }
+        //
+        // logger.log( rows);
+        // callback(rows);
+    });
+};
+
+exports.read_dealer_info = function(userid, callback){
+    callback = callback == null? nop:callback;
+
+    if(userid == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_managers ' + 'WHERE id="{0}"';
+    sql = sql.format(userid);
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            logger.log(err);
+            throw err;
+        }
+
+        callback(rows);
+    });
+};
+
+exports.dealer_add = function(add_data, callback){
+    callback = callback == null? nop:callback;
+
+    if(add_data.name == null || add_data.password == null){
+        callback(null);
+        return;
+    }
+
+    add_data.name = crypto.toBase64(add_data.name);
+    add_data.weixin_id = crypto.toBase64(add_data.weixin_id);
+
+    var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7})";
+    sql = sql.format(add_data.name, add_data.password, 1, add_data.region, add_data.phone_number, add_data.weixin_id, Date.now(), Date.now());
+
+    query(sql,function(err,rows,fields){
+        if(err){
+            callback(null);
+            logger.log( err);
+            throw err;
+        }
+        else{
+            callback(rows);
+        }
+    });
+};
+
+exports.dealer_list = function(order_by, id, name,level, callback){
+    callback = callback == null? nop:callback;
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+    name = crypto.toBase64(name);
+
+    var sql = '';
+
+    if(id == ''){
+        sql = 'SELECT * from t_managers '
+            + 'WHERE level = {3} and name like "%{1}%" order by {2} ';
+        sql = sql.format(id, name, order_by, level);
+    }
+    else{
+        sql = 'SELECT * from t_managers '
+            + 'WHERE level = {3} and id = {0} and name like "%{1}%" order by {2} ';
+        sql = sql.format(id, name, order_by, level);
+    }
+
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        for(var i = 0; i < rows.length; ++i){
+            rows[i].name = crypto.fromBase64(rows[i].name);
+            rows[i].weixin_id = crypto.fromBase64(rows[i].weixin_id);
+        }
+
+        callback(rows);
+    });
+};
+
+exports.room_list = function(order_by, id, name,level, dealer_id, dealer_level, callback){
+    callback = callback == null? nop:callback;
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+    name = crypto.toBase64(name);
+
+    var sql = '';
+
+    if(dealer_level == Global.ADMINISTRATOR_LEVEL){
+        if(id == ''){
+            sql = 'SELECT * from t_rooms '
+                + 'order by {0} ';
+            sql = sql.format(order_by);
+        }
+        else{
+            sql = 'SELECT * from t_rooms '
+                + 'WHERE id = "{0}" order by {1} ';
+            sql = sql.format(id, order_by);
+        }
+    }
+    else{
+        if(id == ''){
+            sql = 'SELECT * from t_rooms '
+                + 'WHERE dealer_id = "{1}" order by {0} ';
+            sql = sql.format(order_by, dealer_id);
+        }
+        else{
+            sql = 'SELECT * from t_rooms '
+                + 'WHERE dealer_id = {2} and id = "{0}" order by {1} ';
+            sql = sql.format(id, order_by, dealer_id);
+        }
+    }
+
+
+
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        for(var i = 0; i < rows.length; ++i){
+            var row = rows[i];
+            if(row.user_name0 != null && row.user_name0 != '')
+                rows[i].user_name0 = crypto.fromBase64(rows[i].user_name0);
+            if(row.user_name1 != null && row.user_name1 != '')
+                rows[i].user_name1 = crypto.fromBase64(rows[i].user_name1);
+            if(row.user_name2 != null && row.user_name2 != '')
+                rows[i].user_name2 = crypto.fromBase64(rows[i].user_name2);
+            if(row.user_name3 != null && row.user_name3 != '')
+                rows[i].user_name3 = crypto.fromBase64(rows[i].user_name3);
+        }
+
+        callback(rows);
+    });
+};
+
+exports.get_dealer = function(name, phone_number, weixin_id, callback){
+    callback = callback == null? nop:callback;
+
+    if(name == null || phone_number == null || weixin_id == null){
+        logger.error('name , phone_number or weixin_id is null.');
+        callback(null);
+        return;
+    }
+
+    name = crypto.toBase64(name);
+    weixin_id = crypto.toBase64(weixin_id);
+
+    var sql = 'SELECT * from t_managers '
+        + 'WHERE name = "{0}" and phone_number = "{1}" and weixin_id = "{2}"';
+    sql = sql.format(name, phone_number, weixin_id);
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        for(var i = 0; i < rows.length; ++i){
+            rows[i].name = crypto.fromBase64(rows[i].name);
+            rows[i].weixin_id = crypto.fromBase64(rows[i].weixin_id);
+        }
+
+        callback(rows);
+    });
+};
+
+exports.create_empty_rooms = function(add_data, room_count, dealer_id, callback){
+    callback = callback == null? nop:callback;
+
+    if(room_count == null || dealer_id == null || dealer_id == ''){
+        callback(null);
+        return;
+    }
+
+    add_data.name = crypto.toBase64(add_data.name);
+    add_data.weixin_id = crypto.toBase64(add_data.weixin_id);
+
+    var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7})";
+    sql = sql.format(add_data.name, add_data.password, 1, add_data.region, add_data.phone_number, add_data.weixin_id, Date.now(), Date.now());
+
+    query(sql,function(err,rows,fields){
+        if(err){
+            callback(null);
+            logger.log( err);
+            throw err;
+        }
+        else{
+            callback(rows);
+        }
+    });
+};
+
+///////终端管理相关函数
+exports.read_user_account = function(adminId, adminPwd, token, callback){
+    callback = callback == null? nop:callback;
+
+    if((adminId == null || adminPwd== null) && token == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_managers WHERE ';
+
+    if (token != null){
+        sql = sql + 'token="{0}"';
+        sql = sql.format(token);
+    } else {
+        sql = sql +'name="{0}" and password="{1}"';
+        sql = sql.format(adminId, adminPwd);
+    }
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        logger.log( rows);
+        callback(rows);
+    });
+};
+
 
 
 exports.query = query;

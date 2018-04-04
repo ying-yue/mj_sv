@@ -1,8 +1,12 @@
 ﻿// let HALL_IP = "49.79.224.152";
-let HALL_IP = "192.168.1.25";
+let HALL_IP = "192.168.1.23";
+let GAME_SERVER_IP = "192.168.1.23";
 // let HALL_IP = "192.168.1.49";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
+let GAME_HTTP_PORT = 9003;
+
+let MANAGER_PORT = 9004; //ADMINISTRATOR_CONNECT_PORT
 
 let ACCOUNT_PRI_KEY = "^&*#$%()@";
 let ROOM_PRI_KEY = "~!@#$(*&^%$&";
@@ -53,7 +57,7 @@ exports.game_server = function(){
 		SERVER_ID:"001",
 		
 		//暴露给大厅服的HTTP端口号
-		HTTP_PORT:9003,
+		HTTP_PORT:GAME_HTTP_PORT,
 		//HTTP TICK的间隔时间，用于向大厅服汇报情况
 		HTTP_TICK_TIME:5000,
 		//大厅服IP
@@ -68,4 +72,14 @@ exports.game_server = function(){
 		CLIENT_IP:HALL_IP,
 		CLIENT_PORT:10000,
 	};
+};
+
+//管理者页面
+exports.manager_server = function(){
+    return {
+        CLIENT_PORT:MANAGER_PORT,
+        HALL_IP:HALL_IP,
+        GAME_SERVER_IP: GAME_SERVER_IP,
+        GAME_HTTP_PORT: GAME_HTTP_PORT
+    };
 };

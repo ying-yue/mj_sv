@@ -789,43 +789,51 @@ function process_hu(userId) {
         // fan /= 2;
         //////////////////////////
 
-        if(game.chuPai != -1){
-            if(seatData.countMap[game.chuPai] == 4){
+        for(let kk in seatData.countMap){
+            if(seatData.countMap[kk] == 4){
                 fan *= 2;
-
-                Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
+                Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
                 Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
             }
-
-            for(let kk in seatData.countMap){
-                if(seatData.countMap[kk] == 4){
-                    if(parseInt(kk) != parseInt(game.chuPai)){
-                        fan *= 2;
-                        Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
-                        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
-                    }
-                }
-            }
         }
-        else{
-            if(seatData.countMap[game.mahjongs[game.currentIndex - 1]] == 4){
-                fan *= 2;
 
-                Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
-                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
-            }
-
-            for(let kk in seatData.countMap){
-                if(seatData.countMap[kk] == 4){
-                    if(parseInt(kk) != parseInt(game.mahjongs[game.currentIndex - 1])){
-                        fan *= 2;
-
-                        Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
-                        Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
-                    }
-                }
-            }
-        }
+        // if(game.chuPai != -1){
+        //     if(seatData.countMap[game.chuPai] == 4){
+        //         fan *= 2;
+        //
+        //         Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
+        //         Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+        //     }
+        //
+        //     for(let kk in seatData.countMap){
+        //         if(seatData.countMap[kk] == 4){
+        //             if(parseInt(kk) != parseInt(game.chuPai)){
+        //                 fan *= 2;
+        //                 Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
+        //                 Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+        //             }
+        //         }
+        //     }
+        // }
+        // else{
+        //     if(seatData.countMap[game.mahjongs[game.currentIndex - 1]] == 4){
+        //         fan *= 2;
+        //
+        //         Logger.log(`huedByQidui = true ----- same pai is 3.`, roomId);
+        //         Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+        //     }
+        //
+        //     for(let kk in seatData.countMap){
+        //         if(seatData.countMap[kk] == 4){
+        //             if(parseInt(kk) != parseInt(game.mahjongs[game.currentIndex - 1])){
+        //                 fan *= 2;
+        //
+        //                 Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
+        //                 Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+        //             }
+        //         }
+        //     }
+        // }
 
 
 
@@ -3963,7 +3971,7 @@ function doGameOver(game,userId,forceEnd, isZimo){
                 }
 
                 userMgr.kickAllInRoom(roomId);
-                roomMgr.destroy(roomId);
+                roomMgr.destroy(roomId, true);
                 db.archive_games(roomInfo.uuid);
             },1500);
         }
@@ -4343,11 +4351,11 @@ exports.setReady = function(userId,callback){
         userMgr.sendMsg(userId,'game_sync_push',data);
         sendOperations(game,seatData,game.chuPai);
     }
-    if(!seat){
+    if(!gameSeatsOfUsers[userId]){
         userMgr.broacastInRoom('user_ready_push',{userid:userId,ready:true, score:0, levelScore:0},userId,true);
     }
     else{
-        userMgr.broacastInRoom('user_ready_push',{userid:userId,ready:true, score:seat.score, levelScore:seat.levelScore},userId,true);
+        userMgr.broacastInRoom('user_ready_push',{userid:userId,ready:true, score:gameSeatsOfUsers[userId].score, levelScore:gameSeatsOfUsers[userId].levelScore},userId,true);
 
     }
 
@@ -5247,6 +5255,20 @@ exports.chuPai = function(userId,pai){
 
     recordGameAction(game,seatData.seatIndex,ACTION_CHUPAI,pai);
 
+    // 일단 방향표시기를 돌리기 위하여
+    var game_turn = game.turn;
+    while(true){
+        game_turn ++;
+        game_turn %= game.seatCount;
+        let turn_Seat = game.gameSeats[game_turn];
+        if(turn_Seat.hued == false){
+            userMgr.broacastInRoom('game_turn_change_push',turn_Seat.userId,seatData.userId,true);
+            break;
+        }
+    }
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////
 
 
     Logger.info(`Sent 'game_chupai_notify_push' to all users.`, roomId);

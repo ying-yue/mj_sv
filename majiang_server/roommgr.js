@@ -24,7 +24,17 @@ let SeatCount = 0;
 function generateRoomId(){
 	let roomId = "";
 	for(let i = 0; i < 6; ++i){
-		roomId += Math.floor(Math.random()*10);
+		if(i == 0){
+            while (true){
+            	//여기서 방번호를 생성하는것은 일반사용자들이므로 첫번호를 0, 1 로 고정한다.
+                roomId += Math.floor(Math.random()*10);
+                if(parseInt(roomId) < 2)
+                	break;
+            }
+            continue;
+		}
+
+        roomId += Math.floor(Math.random()*10);
 	}
 	return roomId;
 }
@@ -76,6 +86,17 @@ function constructRoomFromDb(dbdata){
 	return roomInfo;
 }
 
+exports.get_rooms_ids = function (callback) {
+    callback(rooms);
+};
+
+exports.add_roominfo_in_rooms = function (req, callback) {
+    rooms[req.roomId] = req.roomInfo;
+    totalRooms++;
+
+    callback();
+};
+
 exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 	if(
 		roomConf.type == null
@@ -91,7 +112,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
         || roomConf.jewel_count == null
         || roomConf.bubaibalzhung == null){
 
-		console.log('roomConf.type: ' + roomConf.type);
+		console.log('roomConf.type: xzdd');// + roomConf.type);
         console.log('roomConf.jushu: ' + roomConf.jushu);
         console.log('roomConf.renshu: ' + roomConf.renshu);
         console.log('roomConf.hongdian: ' + roomConf.hongdian);

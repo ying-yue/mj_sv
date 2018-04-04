@@ -8,12 +8,12 @@ function nop(a,b,c,d,e,f,g){
 }
   
 function query(sql){
-    var fiber = Fiber.current;
-    var ret = {
-        err:null,
-        rows:null,
-        fields:null,
-    };
+    // var fiber = Fiber.current;
+    // var ret = {
+    //     err:null,
+    //     rows:null,
+    //     fields:null,
+    // };
 
     pool.getConnection(function(err,conn){  
         if(err){
@@ -252,12 +252,12 @@ exports.get_dealer_by_token = function(token){
     }
 };
 
-exports.update_token = function(account,token){
+exports.update_token = function(id,token){
     if(account == null || token == null){
         return false;
     }
     
-    var sql = 'UPDATE t_dealers SET token = "' + token +'" WHERE account = "' + account + '"';
+    var sql = 'UPDATE t_managers SET token = "' + token +'" WHERE id = ' + id;
     ////console.log(sql);
     var ret = query(sql);
     if(ret.err){
@@ -677,4 +677,35 @@ exports.get_buy_goods_log = function(account,start,rows){
     else{
         return ret.rows;
     }
+};
+
+///////终端管理相关函数
+exports.read_user_account = function(adminId, adminPwd, token, callback){
+    callback = callback == null? nop:callback;
+
+    if((adminId == null || adminPwd== null) && token == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_managers WHERE ';
+
+    if (token != null){
+        sql = sql + 'token="{0}"';
+        sql = sql.format(token);
+    } else {
+        sql = sql +'nick_name="{0}" and password="{1}"';
+        sql = sql.format(adminId, adminPwd);
+    }
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        logger.log( rows);
+        callback(rows);
+    });
 };
