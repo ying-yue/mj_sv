@@ -41,7 +41,7 @@ function fromIntToDateString(val) {
         return "";
     }
 
-    var date = new Date(val);
+    var date = new Date(val * 1000);
 
     return date.Format("yyyy-MM-dd hh:mm:ss");
 }
@@ -139,15 +139,6 @@ app.get('/dealer_detail',function(req,res){
         data:{}
     };
 
-    // if (data == null || data.length == 0){
-    //     send(res,ret);
-    //     return;
-    // }
-
-    // if (id == "" ) {
-    //     id = userData.id;
-    // }
-
     db.read_dealer_info(id, function(data){
         ret.msg = "操作失败";
         if (data && data.length > 0){
@@ -156,23 +147,6 @@ app.get('/dealer_detail',function(req,res){
             ret.code = 0;
             ret.msg = "操作成功";
 
-            // if (data.id != id && userData.lv == 1){//初级管理者
-            //     if (data.lv != 0){
-            //         data.id = "*****";
-            //         data.pwd = "*****";
-            //     }
-            //     else {
-            //         data.id = "";
-            //         data.pwd = "";
-            //     }
-            //
-            //     if (data.roomid != "")
-            //         data.roomid = "*****";
-            //
-            //     data.account = "*****";
-            // }
-            //
-            // data.name = data.lv==4 ? "管理者":data.name;
             ret.data = data;
             ret.data.name = crypto.fromBase64(ret.data.name);
             ret.data.weixin_id = crypto.fromBase64(ret.data.weixin_id);
@@ -181,9 +155,41 @@ app.get('/dealer_detail',function(req,res){
 
         send(res,ret);
     });
+});
+
+app.get('/room_detail',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var uuid = req.query.uuid;
 
 
 
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    if (uuid == null || uuid == ''){
+        send(res,ret);
+        return;
+    }
+
+    db.room_detail_info(uuid, function(data){
+        ret.msg = "操作失败";
+        if (data){
+            ret.code = 0;
+            ret.msg = "操作成功";
+
+            ret.data = data;
+        }
+
+        send(res,ret);
+    });
 });
 
 app.get('/add_dealer',function(req,res){
@@ -413,13 +419,12 @@ app.get('/room_list',function(req,res){
                             'qidui': base_info_data.qidui4 || base_info_data.qidui8,
                             'yise': base_info_data.yise,
                             'total_jushu': base_info_data.maxGames,
-                            'current_jushu': 0,
-                            'room_create_time': fromIntToDateString(temp.create_time * 1000),
+                            'current_jushu': temp.current_jushu,
+                            'room_create_time': fromIntToDateString(temp.create_time),
                             'game_start_time': fromIntToDateString(temp.game_start_time),
                             'game_end_time': fromIntToDateString(temp.game_start_time),
                             'room_status': temp.room_state,
                             'room_key_status': ''
-
 
                         };
 
@@ -457,10 +462,10 @@ app.get('/create_empty_rooms',function(req,res){
     if (room_count == null || room_count == '')
         room_count = 1;
 
-    if (req.query.mj_type == '北京麻将')
-        req.query.mj_type = 0;
+    if (req.query.mahjongtype == '北京麻将')
+        req.query.mahjongtype = 0;
     else
-        req.query.mj_type = 1;
+        req.query.mahjongtype = 1;
 
     if (req.query.jushu == '4局')
         req.query.jushu = 0;

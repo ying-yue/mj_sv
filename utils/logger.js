@@ -4,8 +4,8 @@ let path = require("path");
 const LOG_CONSOLE_TYPE = 0;
 const LOG_FILE_TYPE = 1;
 
-// let logType = LOG_CONSOLE_TYPE;
-let logType = LOG_FILE_TYPE;
+let logType = LOG_CONSOLE_TYPE;
+// let logType = LOG_FILE_TYPE;
 
 Date.prototype.Format = function (fmt) {
     let o = {
@@ -55,6 +55,12 @@ Object.defineProperty(global, '__stack', {
 });
 
 function log(message, filename, tag, ignoreMetaData) {
+    if(whatIsIt(message) == 'Object'){
+        message = JSON.stringify(message);
+    }
+    else if(whatIsIt(message) == 'Array'){
+        message = message.toString();
+    }
     //noinspection JSUnresolvedFunction
     let sourceFileName = __stack[2].getFileName();
 
@@ -111,6 +117,31 @@ function log(message, filename, tag, ignoreMetaData) {
     }
     else {
         console.log(info);
+    }
+}
+
+var stringConstructor = "test".constructor;
+var arrayConstructor = [].constructor;
+var objectConstructor = {}.constructor;
+
+function whatIsIt(object) {
+    if (object === null) {
+        return "null";
+    }
+    else if (object === undefined) {
+        return "undefined";
+    }
+    else if (object.constructor === stringConstructor) {
+        return "String";
+    }
+    else if (object.constructor === arrayConstructor) {
+        return "Array";
+    }
+    else if (object.constructor === objectConstructor) {
+        return "Object";
+    }
+    else {
+        return "don't know";
     }
 }
 

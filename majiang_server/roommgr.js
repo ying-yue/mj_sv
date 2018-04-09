@@ -27,6 +27,7 @@ function generateRoomId(){
 		if(i == 0){
             while (true){
             	//여기서 방번호를 생성하는것은 일반사용자들이므로 첫번호를 0, 1 로 고정한다.
+                roomId = '';
                 roomId += Math.floor(Math.random()*10);
                 if(parseInt(roomId) < 2)
                 	break;
@@ -253,7 +254,7 @@ exports.destroy = function(roomId, is_success){
 	if(!is_success){
 		room_state = ROOM_STATE_UNSUCCESS_FINISHED;
 	}
-    db.update_room_data({roomId: roomId, is_full: 1, room_state: room_state});
+    db.update_room_data({roomId: roomId, is_full: 1, room_state: room_state, game_end_time: parseInt(Date.now() / 1000)});
 };
 
 exports.getTotalRooms = function(){

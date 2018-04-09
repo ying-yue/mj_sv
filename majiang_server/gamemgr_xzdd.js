@@ -3942,8 +3942,11 @@ function doGameOver(game,userId,forceEnd, isZimo){
 
     let results = [];
     let dbresult = [];
+
+    let scoreDataToSave = [];
     for(let seat of game.gameSeats){
         dbresult.push(0);
+        scoreDataToSave.push(0);
     }
 
     let fnNoticeResult = function(isEnd){
@@ -3973,6 +3976,7 @@ function doGameOver(game,userId,forceEnd, isZimo){
                 userMgr.kickAllInRoom(roomId);
                 roomMgr.destroy(roomId, true);
                 db.archive_games(roomInfo.uuid);
+                db.saveScoreInRoomTable(roomInfo.uuid, scoreDataToSave);
             },1500);
         }
     };
@@ -4087,6 +4091,8 @@ function doGameOver(game,userId,forceEnd, isZimo){
 
 
             dbresult[i] = sd.score;
+            scoreDataToSave[i] = [sd.userId, sd.score];
+
 
             //한 회전의 점수들을 보관하고 있다가 방이 끝날때 없앤다.
             roomLevelScore[sd.userId] = sd.score;
@@ -4338,6 +4344,10 @@ exports.setReady = function(userId,callback){
             };
             if(sd.userId == userId){
                 s.holds = sd.holds;
+                if(sd.seatIndex == game.turn){
+                    s.mopai = game.mahjongs[game.currentIndex - 1];
+                }
+
                 s.huanpais = sd.huanpais;
                 seatData = sd;
             }
@@ -4821,7 +4831,7 @@ exports.begin = function(roomId) {
     recordGameAction(game,-1,ACTION_SCORE_CHANGE,scoreList);
 
 
-    var room_data = {roomId: roomId, is_full: 1, room_state: ROOM_STATE_GAME_STARTING};
+    var room_data = {roomId: roomId, is_full: 1, room_state: ROOM_STATE_GAME_STARTING, game_start_time: parseInt(Date.now() / 1000), current_jushu: roomInfo.numOfGames};
     db.update_room_data(room_data);
 
 };
@@ -6161,7 +6171,7 @@ function doGang(game,turnSeat,seatData,gangtype,numOfCnt,pai){
         // score = game.basic_score * selfFan * fen;
 
 
-        curGangVal = game.basic_score * selfFanToSaveGangScore * fen;;
+        curGangVal = game.basic_score * selfFanToSaveGangScore * fen;
         game.currentGangVal = [1, curGangVal];
 
         // otherSeat.score -= score;
