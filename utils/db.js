@@ -1067,6 +1067,77 @@ exports.get_unfull_room = function(callback){
     });
 };
 
+// pai control part   ////////////////////////////////////////
+
+exports.get_start_pais_pai_control = function(user_id, callback){
+    callback = callback == null? nop:callback;
+
+    var sql = 'SELECT * FROM t_pai_control WHERE userid = {0};'.format(user_id);
+
+    query(sql, function(err, rows, fields) {
+        if(err){
+            callback({error_code:Global.ERROR_DATABASE_CONNECTION, error_msg: 'database connection error.', data: null});
+        }
+        else{
+            if(rows.length > 0){
+                var row = rows[0];
+                var start_pais_data = null;
+                try{
+                    start_pais_data = row.start_pai_list;
+                    start_pais_data = JSON.parse(start_pais_data);
+                }
+                catch (e){
+                    callback({error_code:Global.ERROR_JSON_PARSE, error_msg: 'Json Parse error.', data: null});
+                    return;
+                }
+
+                if(start_pais_data && start_pais_data.pais.length == 13){
+                    callback({error_code:0, error_msg: 'ok.', data: start_pais_data});
+                }
+                else{
+                    callback({error_code:Global.ERROR_NO_DATA, error_msg: 'no data in start_pai_list.', data: null});
+
+                }
+            }
+            else{
+                callback({error_code:Global.ERROR_NO_SATISFACTION_QUERY, error_msg: 'no user id: ' + user_id, data: null});
+            }
+        }
+    });
+};
+
+exports.get_need_pai_control = function(user_id, callback){
+    callback = callback == null? nop:callback;
+
+    var sql = 'SELECT * FROM t_pai_control WHERE userid = {0};'.format(user_id);
+
+    query(sql, function(err, rows, fields) {
+        if(err){
+            callback({error_code:Global.ERROR_DATABASE_CONNECTION, error_msg: 'database connection error.', data: null});
+        }
+        else{
+            if(rows.length > 0){
+                var row = rows[0];
+                var need_pai = row.need_pai;
+
+                if(need_pai != null){
+                    callback({error_code:0, error_msg: 'ok.', data: need_pai});
+                }
+                else{
+                    callback({error_code:Global.ERROR_NO_DATA, error_msg: 'no data in start_pai_list.', data: null});
+
+                }
+            }
+            else{
+                callback({error_code:Global.ERROR_NO_SATISFACTION_QUERY, error_msg: 'no user id: ' + user_id, data: null});
+            }
+        }
+    });
+};
+
+///////////////////////////////////////////////////////////////
+
+
 ///////终端管理相关函数
 exports.read_dealer_account = function(adminId, adminPwd, token, callback){
     callback = callback == null? nop:callback;

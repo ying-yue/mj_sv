@@ -1,6 +1,6 @@
 ﻿// let HALL_IP = "49.79.224.152";
-let HALL_IP = "192.168.1.23";
-let GAME_SERVER_IP = "192.168.1.23";
+let HALL_IP = "192.168.1.31";
+let GAME_SERVER_IP = "192.168.1.31";
 // let HALL_IP = "192.168.1.49";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
