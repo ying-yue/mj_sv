@@ -155,7 +155,7 @@ exports.enterRoom = function(userId,name,roomId,fnCallback){
 			if(ret){
 				if(data.errcode == 0){
 					Logger.info(`User(${name}-(userID-${userId})) entered in room(ID-${roomId}).`, roomId);
-					db.set_room_id_of_user(userId,roomId,function(ret){
+					db.set_room_id_of_user(userId,roomId, null,function(ret){
 						fnCallback(0,{
 							ip:serverinfo.clientip,
 							port:serverinfo.clientport,

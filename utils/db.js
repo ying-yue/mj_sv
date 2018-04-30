@@ -25,12 +25,18 @@ function query(sql,callback){
             console.log('------------------SQL CONTENT!---------------');
             console.log(sql);
             console.log('---------------------------------------------')
-            conn.query(sql,function(qerr,vals,fields){
-                //释放连接
-                conn.release();
-                //事件驱动回调
-                callback(qerr,vals,fields);
-            });
+            try{
+                conn.query(sql,function(qerr,vals,fields){
+                    //释放连接
+                    conn.release();
+                    //事件驱动回调
+                    callback(qerr,vals,fields);
+                });
+            }
+            catch (e){
+                var a = 1;
+            }
+
         }
     });
 };
@@ -177,7 +183,7 @@ exports.get_user_data_by_userid = function(userid,callback){
         return;
     }
 
-    var sql = 'SELECT userid,account,name,lv,exp,coins,gems,roomid FROM t_users WHERE userid = ' + userid;
+    var sql = 'SELECT userid,account,name,lv,exp,coins,gems,roomid, room_count_useable, room_ids_useable FROM t_users WHERE userid = ' + userid;
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
@@ -202,7 +208,7 @@ exports.add_user_gems = function(userid,gems,callback){
     }
 
     // var sql = 'UPDATE t_users SET gems = ' + gems + ' WHERE userid = ' + userid;
-    var sql = 'UPDATE t_users SET gems = gems +' + gems + ' WHERE userid = ' + userid;
+    var sql = 'UPDATE t_users SET gems = gems + (' + gems + ') WHERE userid = ' + userid;
     // console.log(sql);
     query(sql,function(err,rows,fields){
         if(err){
@@ -225,6 +231,29 @@ exports.get_gems = function(account,callback){
     }
 
     var sql = 'SELECT gems FROM t_users WHERE account = "' + account + '"';
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            throw err;
+        }
+
+        if(rows.length == 0){
+            callback(null);
+            return;
+        }
+
+        callback(rows[0]);
+    });
+};
+
+exports.get_room_ids_of_user = function(account,callback){
+    callback = callback == null? nop:callback;
+    if(account == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT room_ids_useable FROM t_users WHERE account = "' + account + '"';
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
@@ -389,13 +418,21 @@ exports.create_user = function(account,name,coins,gems,sex,headimg,callback){
     });
 };
 
-exports.update_user_gem_and_charge_amount = function (user_id, gems, charge_amount) {
+exports.update_user_gem_and_charge_amount = function (user_id, gems, charge_amount, callback) {
     if(user_id == null || gems== null){
+        callback(null);
         return;
     }
+    var sql = '';
+    if(charge_amount){
+        sql = "UPDATE t_users SET gems=gems+{0}, charge_amount='{1}' WHERE userid={2}";
+        sql = sql.format(gems, charge_amount, user_id);
+    }
+    else{
+        sql = "UPDATE t_users SET gems=gems+{0} WHERE userid={1}";
+        sql = sql.format(gems, user_id);
+    }
 
-    var sql = "UPDATE t_users SET gems='{0}', charge_amount='{1}' WHERE userid='{2}'";
-    sql = sql.format(gems, charge_amount, user_id);
     logger.log( sql);
 
     query(sql, function(err, rows, fields) {
@@ -403,6 +440,7 @@ exports.update_user_gem_and_charge_amount = function (user_id, gems, charge_amou
             logger.log(err);
             throw err;
         }
+        callback(true);
     });
 };
 
@@ -483,6 +521,70 @@ exports.update_user_info = function(userid,name,headimg,sex,callback){
     });
 };
 
+// exports.update_user_room_count_ids = function(userid,room_id_list,callback){
+//     callback = callback == null? nop:callback;
+//     if(userid == null){
+//         callback(null);
+//         return;
+//     }
+//
+//
+//
+//     var sql1 = "select room_ids_useable FROM t_users WHERE userid={0}".format(userid);
+//     query(sql1, function(err, rows, fields) {
+//         if (err) {
+//             throw err;
+//         }
+//         if(rows == null || rows.length == 0){
+//             callback(false);
+//             return;
+//         }
+//
+//         var new_room_ids = [];
+//
+//         var room_ids_useable_string = rows[0].room_ids_useable;
+//         var origin_room_count = rows[0].room_count_useable;
+//         if(room_ids_useable_string){
+//             var json_data = JSON.parse(room_ids_useable_string);
+//             var room_ids = json_data.room_ids;
+//
+//             for(var i = 0; i < room_ids.length; i++){
+//                 new_room_ids.push(room_ids[i]);
+//             }
+//
+//         }
+//
+//         for(var j = 0; j < room_id_list.length; j++){
+//             new_room_ids.push(room_id_list[j]);
+//         }
+//
+//         var room_id_list_string = '{"room_ids":[';
+//
+//         for(var i = 0; i < new_room_ids.length; i++){
+//             if(i == new_room_ids.length - 1){
+//                 room_id_list_string += new_room_ids[i];
+//             }
+//             else{
+//                 room_id_list_string += new_room_ids[i] + ',';
+//             }
+//         }
+//
+//         room_id_list_string += ']}';
+//
+//         var sql = "UPDATE t_users SET room_count_useable =room_count_useable+{0},room_ids_useable='{1}' WHERE userid={2}";
+//         sql = sql.format(room_id_list.length,room_id_list_string,userid);
+//         // console.log(sql);
+//         query(sql, function(err, rows, fields) {
+//             if (err) {
+//                 throw err;
+//             }
+//             callback(rows);
+//         });
+//     });
+//
+//
+// };
+
 exports.get_user_base_info = function(userid,callback){
     callback = callback == null? nop:callback;
     if(userid == null){
@@ -542,11 +644,12 @@ exports.cost_gems = function(userid,cost,callback){
     });
 };
 
-exports.set_room_id_of_user = function(userId,roomId,callback){
+exports.set_room_id_of_user = function(userId,roomId,roomIdToRemove,callback){
     callback = callback == null? nop:callback;
     if(roomId != null){
         roomId = '"' + roomId + '"';
     }
+
     var sql = 'UPDATE t_users SET roomid = '+ roomId + ' WHERE userid = "' + userId + '"';
     // console.log(sql);
     query(sql, function(err, rows, fields) {
@@ -556,9 +659,94 @@ exports.set_room_id_of_user = function(userId,roomId,callback){
             throw err;
         }
         else{
-            callback(rows.length > 0);
+            if(rows && roomIdToRemove){
+                exports.update_room_as_origin(roomIdToRemove);
+            }
+            callback(rows != null);
         }
     });
+    // if(!roomIdToRemove){
+    //     var sql = 'UPDATE t_users SET roomid = '+ roomId + ' WHERE userid = "' + userId + '"';
+    //     // console.log(sql);
+    //     query(sql, function(err, rows, fields) {
+    //         if(err){
+    //             // console.log(err);
+    //             callback(false);
+    //             throw err;
+    //         }
+    //         else{
+    //             callback(rows.length > 0);
+    //         }
+    //     });
+    // }
+    // else{
+    //     exports.get_user_data_by_userid(userId, function (user_data) {
+    //        if(user_data){
+    //            var room_count_useable = user_data.room_count_useable;
+    //            var room_ids_useable = user_data.room_ids_useable;
+    //            if(!room_ids_useable){
+    //                var sql = 'UPDATE t_users SET roomid = '+ roomId + ' WHERE userid = "' + userId + '"';
+    //                // console.log(sql);
+    //                query(sql, function(err, rows, fields) {
+    //                    if(err){
+    //                        // console.log(err);
+    //                        callback(false);
+    //                        throw err;
+    //                    }
+    //                    else{
+    //                        callback(rows.length > 0);
+    //                    }
+    //                });
+    //            }
+    //            else{
+    //                var ids_data = JSON.parse(room_ids_useable).room_ids;
+    //
+    //                var room_id_list_string = '{"room_ids":[';
+    //                var new_room_ids = [];
+    //
+    //                if(ids_data.length == 1 && parseInt(ids_data[0]) == parseInt(roomIdToRemove)){
+    //                    room_id_list_string = null;
+    //                }
+    //                else{
+    //                    for(var i = 0; i < ids_data.length; i++){
+    //                        if(parseInt(ids_data[i]) == parseInt(roomIdToRemove))
+    //                            continue;
+    //
+    //                        room_id_list_string += ids_data[i] + ',';
+    //                    }
+    //
+    //                    room_id_list_string = room_id_list_string.substring(0, room_id_list_string.length - 1);
+    //
+    //                    room_id_list_string += ']}';
+    //                }
+    //
+    //
+    //                if(room_id_list_string){
+    //                    var sql = "UPDATE t_users SET roomid = "+ roomId + ", room_count_useable =room_count_useable-1,room_ids_useable='{0}' WHERE userid={1}";
+    //                    sql = sql.format(room_id_list_string,userId);
+    //                }
+    //                else{
+    //                    var sql = "UPDATE t_users SET roomid = "+ roomId + ", room_count_useable =room_count_useable-1,room_ids_useable=null WHERE userid={0}";
+    //                    sql = sql.format(userId);
+    //                }
+    //
+    //
+    //                // console.log(sql);
+    //                query(sql, function(err, rows1, fields) {
+    //                    if (err) {
+    //                        throw err;
+    //                    }
+    //                    callback(rows1);
+    //                });
+    //
+    //            }
+    //        }
+    //        else{
+    //            callback(false);
+    //        }
+    //     });
+    // }
+
 };
 
 exports.get_room_id_of_user = function(userId,callback){
@@ -588,7 +776,7 @@ exports.create_room = function(roomId,conf,ip,port,create_time,callback){
                 VALUES('{0}','{1}', {2},'{3}','{4}',0,{6},0,0,0,'','',0,0,'','',0,0,'','',0,0,'','',0)";
     var uuid = Date.now() + roomId;
     var baseInfo = JSON.stringify(conf);
-    if(conf.dealer_id == null){
+    if(conf.dealer_id == null || conf.dealer_id == 'NaN' || conf.dealer_id == ''){
         conf.dealer_id = 0;
     }
     sql = sql.format(uuid,roomId, conf.dealer_id ,baseInfo,ip,port,create_time);
@@ -599,7 +787,7 @@ exports.create_room = function(roomId,conf,ip,port,create_time,callback){
             throw err;
         }
         else{
-            callback(uuid, null);
+            callback(uuid, null, roomId);
         }
     });
 };
@@ -635,6 +823,27 @@ exports.update_seat_info = function(roomId,seatIndex,userId,icon,name,callback){
     });
 };
 
+exports.update_room_as_origin = function (room_id, callback) {
+    callback = callback == null? nop:callback;
+
+    var sql = 'update t_rooms set room_state=0, current_jushu=0, game_start_time=null, game_end_time=null, ' +
+        'num_of_turns=0, next_button=0, user_id0=0, user_icon0=null, user_name0=null, user_score0=0,' +
+        'user_id1=0, user_icon1=null, user_name1=null, user_score0=1,' +
+        'user_id2=0, user_icon2=null, user_name2=null, user_score2=0,' +
+        'user_id3=0, user_icon3=null, user_name3=null, user_score3=0,' +
+        'ip=null, port=null, is_full=0 where id={0}'.format(room_id);
+
+    query(sql,function(err,row,fields) {
+        if (err) {
+            callback(false);
+            throw err;
+        }
+        else {
+            callback(true);
+        }
+    });
+};
+
 exports.update_room_data = function(room_data,callback){
     callback = callback == null? nop:callback;
 
@@ -663,6 +872,25 @@ exports.update_room_data = function(room_data,callback){
             throw err;
         }
         else{
+            if(room_data.room_state != ROOM_STATE_EMPTY && room_data.room_state != ROOM_STATE_GAME_STARTING){
+                var sql1 = 'select dealer_id from t_rooms where id={0}'.format(room_data.roomId);
+                query(sql1,function(err1,row1,fields1){
+                    if(err1){
+                        callback(false);
+                        throw err1;
+                    }
+                    else{
+                        if(row1 != null && row1.length > 0 && row1[0].dealer_id > 0){
+                            var dealer_id = row1[0].dealer_id;
+                            var update_data = {id:dealer_id,
+                                room_count_opend:-1,
+                                room_count_used:1
+                            };
+                            exports.update_managers_info(update_data);
+                        }
+                    }
+                });
+            }
             callback(true);
         }
     });
@@ -846,7 +1074,7 @@ exports.create_game = function(room_uuid,index,base_info,callback){
     callback = callback == null? nop:callback;
     var sql = "INSERT INTO t_games(room_uuid,game_index,base_info,create_time) VALUES('{0}',{1},'{2}',unix_timestamp(now()))";
     sql = sql.format(room_uuid,index,base_info);
-    //console.log(sql);
+    console.log(sql);
     query(sql,function(err,rows,fields){
         if(err){
             callback(null);
@@ -875,7 +1103,7 @@ exports.delete_games = function(room_uuid,callback){
             callback(true);
         }
     });
-}
+};
 
 exports.saveScoreInRoomTable = function (room_uuid, scoreDataToSave, callback) {
     callback = callback == null? nop:callback;
@@ -1174,6 +1402,33 @@ exports.read_dealer_account = function(adminId, adminPwd, token, callback){
     });
 };
 
+exports.read_dealer_account_by_dealer_id = function(dealer_id, callback){
+    callback = callback == null? nop:callback;
+
+    if(dealer_id == null || dealer_id == '' || dealer_id == 0 || dealer_id == '0'){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_managers WHERE id={0}'.format(dealer_id);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        logger.log( rows);
+        for(var i = 0; i < rows.length; ++i){
+            rows[i].name = crypto.fromBase64(rows[i].name);
+            rows[i].weixin_id = crypto.fromBase64(rows[i].weixin_id);
+        }
+
+        callback(rows);
+    });
+};
+
 exports.update_token_managers = function(id,token){
     if(id == null || token == null){
         return false;
@@ -1190,27 +1445,363 @@ exports.update_token_managers = function(id,token){
         else{
             return true;
         }
-        // if (err) {
-        //     callback(null);
-        //     logger.log(err);
-        //     throw err;
-        // }
-        //
-        // logger.log( rows);
-        // callback(rows);
     });
 };
 
-exports.read_dealer_info = function(userid, callback){
+exports.update_password = function(id,newPwd, callback){
+    if(id == null || newPwd == null){
+        return false;
+    }
+
+    var sql = 'UPDATE t_managers SET password = "' + newPwd +'" WHERE id = ' + id;
+    ////console.log(sql);
+    query(sql, function(err, rows, fields) {
+
+        if(err){
+            //console.log(ret.err);
+            callback(false);
+        }
+        else{
+            callback(true);
+        }
+    });
+};
+
+exports.update_managers_info = function(update_data, callback){
+    callback = callback == null? nop:callback;
+    // if(update_data.id == null){
+    //     callback(null);
+    //     return false;
+    // }
+
+    var sql = 'UPDATE t_managers SET ';
+
+    if(update_data.name != null){
+        update_data.name = crypto.toBase64(update_data.name);
+        sql += 'name = "{0}", '.format(update_data.name);
+    }
+
+    if(update_data.password != null){
+        sql += 'password = "{0}", '.format(update_data.password);
+    }
+
+    if(update_data.level != null){
+        sql += 'level = {0}, '.format(update_data.level);
+    }
+
+    if(update_data.token != null){
+        sql += 'token = "{0}", '.format(update_data.token);
+    }
+
+    if(update_data.dealer_type != null){
+        sql += 'dealer_type = {0}, '.format(update_data.dealer_type);
+    }
+
+    if(update_data.region_of_dealer != null){
+        sql += 'region_of_dealer = "{0}", '.format(update_data.region_of_dealer);
+    }
+
+    if(update_data.phone_number != null){
+        sql += 'phone_number = "{0}", '.format(update_data.phone_number);
+    }
+
+    if(update_data.weixin_id != null){
+        sql += 'weixin_id = "{0}", '.format(update_data.weixin_id);
+    }
+
+    if(update_data.room_count_total != null){
+        sql += 'room_count_total = room_count_total + ({0}), '.format(update_data.room_count_total);
+    }
+
+    if(update_data.room_count_useable != null){
+        sql += 'room_count_useable = room_count_useable +({0}), '.format(update_data.room_count_useable);
+    }
+
+    if(update_data.room_count_saled != null){
+        sql += 'room_count_saled = room_count_saled +({0}), '.format(update_data.room_count_saled);
+    }
+
+    if(update_data.room_count_opened != null){
+        sql += 'room_count_opened = room_count_opened + ({0}), '.format(update_data.room_count_opened);
+    }
+
+    if(update_data.room_count_created != null){
+        sql += 'room_count_created = room_count_created + ({0}), '.format(update_data.room_count_created);
+    }
+
+    if(update_data.room_count_used != null){
+        sql += 'room_count_used = room_count_used + ({0}), '.format(update_data.room_count_used);
+    }
+    if(update_data.room_count_bonus != null){
+        sql += 'room_count_bonus = room_count_bonus + ({0}), '.format(update_data.room_count_bonus);
+    }
+
+    if(update_data.status != null){
+        sql += 'status = "{0}", '.format(update_data.status);
+    }
+
+    if(update_data.room_count_added != null){
+        if(update_data.room_count_added > 0){
+            sql += 'room_count_total = room_count_total + ({0}), '.format(update_data.room_count_added);
+            sql += 'room_count_useable = room_count_useable + ({0}), '.format(update_data.room_count_added);
+        }
+        else{
+            sql += 'room_count_useable = room_count_useable + ({0}), '.format(update_data.room_count_added);
+            //부호는 미누스이지만 실지로는 room_count_saled를 증가시키고 있다.그것은 room_count_added가 미누스라는것은 판매하고있다는 의미이기때문이다.
+            sql += 'room_count_saled = room_count_saled - ({0}), '.format(update_data.room_count_added);
+        }
+
+    }
+
+    sql += 'date_modified = {0} '.format(Math.ceil(Date.now() / 1000));
+
+    if(update_data.id){
+        sql += 'WHERE id = ' + update_data.id;
+    }
+    else{
+        sql += 'WHERE phone_number = "{0}"'.format(update_data.phone_number);
+    }
+
+    ////console.log(sql);
+    query(sql, function(err, rows, fields) {
+
+        if(err){
+            //console.log(ret.err);
+            callback(null);
+            return false;
+        }
+        else{
+            callback(true);
+            return true;
+        }
+    });
+};
+
+exports.insert_data_in_purchase = function(update_data, callback){
+    if(update_data.from_id == null || update_data.to_id == null){
+        callback(null);
+        return false;
+    }
+
+    var from_id = update_data.from_id;
+    var to_id = update_data.to_id;
+    var room_count = parseInt(update_data.room_count_added);
+    var sale_type = update_data.sale_type;
+
+    if(sale_type == 0){
+        var sql = '(select * from t_managers where id={0}) union (select * from t_managers where phone_number="{1}")'.format(from_id, to_id);
+        query(sql, function(err, rows, fields) {
+
+            if(err){
+                //console.log(ret.err);
+                callback(null);
+                return false;
+            }
+            else{
+                if(rows == null || rows.length == 0 || rows.length < 2){
+                    callback(null);
+                    return false;
+                }
+
+                var seller_row = rows[0];
+                var buyer_row = rows[1];
+
+                var getted_data = {
+                    seller_id: seller_row.id,
+                    seller_name: seller_row.name,
+                    buyer_id: buyer_row.id,
+                    buyer_name: buyer_row.name,
+                    room_count_purchased: room_count,
+                    purchase_date: Math.ceil(Date.now() / 1000),
+                    before_room_count_of_seller: parseInt(seller_row.room_count_useable) + room_count,
+                    after_room_count_of_seller: seller_row.room_count_useable,
+                    before_room_count_of_buyer: parseInt(buyer_row.room_count_useable) - room_count,
+                    after_room_count_of_buyer: buyer_row.room_count_useable
+                };
+
+                var sql1 = "INSERT INTO t_purchase(seller_id, seller_name, buyer_id, buyer_name, room_count_purchased, purchase_date, before_room_count_of_seller," +
+                    " after_room_count_of_seller, before_room_count_of_buyer, after_room_count_of_buyer,sale_type) VALUES({0},'{1}',{2},'{3}',{4},'{5}',{6}, {7}, {8}, {9}, {10})";
+                sql1 = sql1.format(getted_data.seller_id, getted_data.seller_name, getted_data.buyer_id, getted_data.buyer_name, getted_data.room_count_purchased,
+                    getted_data.purchase_date, getted_data.before_room_count_of_seller, getted_data.after_room_count_of_seller,
+                    getted_data.before_room_count_of_buyer, getted_data.after_room_count_of_buyer, sale_type);
+
+                query(sql1, function(err1, rows1, fields1) {
+
+                    if (err1) {
+                        //console.log(ret.err);
+                        callback(null);
+                        return false;
+                    }
+                    else {
+                        callback(true);
+                        return true;
+                    }
+                });
+
+
+            }
+        });
+    }
+    else{
+        var sql = 'select * from t_managers where id={0}'.format(from_id);
+        query(sql, function(err, rows, fields) {
+
+            if(err){
+                //console.log(ret.err);
+                callback(null);
+                return false;
+            }
+            else{
+                if(rows == null || rows.length == 0){
+                    callback(null);
+                    return false;
+                }
+
+                var seller_row = rows[0];
+
+                var sql1 = 'select * from t_users where userid={0}'.format(to_id);
+                query(sql1, function(err1, rows1, fields) {
+
+                    if (err1) {
+                        //console.log(ret.err);
+                        callback(null);
+                        return false;
+                    }
+                    else {
+                        if (rows1 == null || rows1.length == 0) {
+                            callback(null);
+                            return false;
+                        }
+
+                        var buyer_row = rows1[0];
+
+                        var getted_data = {
+                            seller_id: seller_row.id,
+                            seller_name: seller_row.name,
+                            buyer_id: buyer_row.userid,
+                            buyer_name: buyer_row.name,
+                            room_count_purchased: room_count,
+                            purchase_date: Math.ceil(Date.now() / 1000),
+                            before_room_count_of_seller: parseInt(seller_row.room_count_useable) + room_count,
+                            after_room_count_of_seller: seller_row.room_count_useable,
+                            before_room_count_of_buyer: parseInt(buyer_row.room_count_useable) - room_count,
+                            after_room_count_of_buyer: buyer_row.room_count_useable
+                        };
+
+                        var sql1 = "INSERT INTO t_purchase(seller_id, seller_name, buyer_id, buyer_name, room_count_purchased, purchase_date, before_room_count_of_seller," +
+                            " after_room_count_of_seller, before_room_count_of_buyer, after_room_count_of_buyer, sale_type) VALUES({0},'{1}',{2},'{3}',{4},'{5}',{6}, {7}, {8}, {9}, {10})";
+                        sql1 = sql1.format(getted_data.seller_id, getted_data.seller_name, getted_data.buyer_id, getted_data.buyer_name, getted_data.room_count_purchased,
+                            getted_data.purchase_date, getted_data.before_room_count_of_seller, getted_data.after_room_count_of_seller,
+                            getted_data.before_room_count_of_buyer, getted_data.after_room_count_of_buyer, sale_type);
+
+                        query(sql1, function(err2, rows2, fields1) {
+
+                            if (err2) {
+                                //console.log(ret.err);
+                                callback(null);
+                                return false;
+                            }
+                            else {
+                                callback(true);
+                                return true;
+                            }
+                        });
+                    }
+                });
+
+
+
+
+            }
+        });
+    }
+
+};
+
+exports.change_dealer_in_room_table = function(update_data, callback){
+    if(update_data.from_id == null || update_data.to_id == null){
+        callback(null);
+        return false;
+    }
+
+    var from_id = update_data.from_id;
+    var to_id = update_data.to_id;
+    var room_count = update_data.room_count_added;
+
+    var sql = 'SELECT * from t_rooms WHERE dealer_id={0} AND room_state=0'.format(from_id);
+    query(sql, function(err, rows, fields) {
+
+        if(err){
+            //console.log(ret.err);
+            callback(null);
+            return false;
+        }
+        else{
+            if(rows == null || rows.length == 0 || parseInt(room_count) > rows.length){
+                callback(null);
+                return false;
+            }
+
+            var need_room_ids = [];
+
+            var sql1 = 'UPDATE t_rooms SET dealer_id = CASE uuid ';
+            var where_command = 'WHERE ';
+            for(var i = 0; i < parseInt(room_count); i++){
+                sql1 += 'WHEN "{0}" THEN {1} '.format(rows[i].uuid, to_id);
+                if(i == 0)
+                    where_command += 'uuid="{0}" '.format(rows[i].uuid)
+                else
+                    where_command += 'OR uuid="{0}" '.format(rows[i].uuid)
+
+                need_room_ids.push(rows[i].id);
+
+            }
+            sql1 += 'END ' + where_command;
+
+            query(sql1, function(err1, rows1, fields1) {
+
+                if (err1) {
+                    //console.log(ret.err);
+                    callback(null);
+                    return false;
+                }
+                else {
+                    callback(need_room_ids);
+                    return true;
+                }
+            });
+
+
+        }
+    });
+};
+
+exports.read_dealer_info = function(search_data, callback){
     callback = callback == null? nop:callback;
 
-    if(userid == null){
+    if(search_data.dealer_id == null && search_data.phone_number){
         callback(null);
         return;
     }
+    var userid = search_data.dealer_id;
+    var other_id = search_data.other_id;
+    var phone_number = search_data.phone_number;
 
-    var sql = 'SELECT * from t_managers ' + 'WHERE id="{0}"';
-    sql = sql.format(userid);
+    var sql = '';
+
+    if(phone_number){
+        sql = 'SELECT * from t_managers ' + 'WHERE phone_number="{0}"'.format(phone_number);
+    }
+    else{
+        sql = 'SELECT * from t_managers ' + 'WHERE id={0}';
+        sql = sql.format(userid);
+
+        if(other_id != null){
+            sql = 'SELECT * from t_managers WHERE id={0} AND register_dealer_id={1}'.format(other_id, userid);
+        }
+    }
+
+
 
     logger.log( sql);
 
@@ -1220,11 +1811,24 @@ exports.read_dealer_info = function(userid, callback){
             throw err;
         }
 
-        callback(rows);
+        if(rows != null && rows.length > 0){
+            var row = rows[0];
+            if(row.name != null && row.name != '')
+                row.name = crypto.fromBase64(row.name);
+            if(row.weixin_id != null && row.weixin_id != '')
+                row.weixin_id = crypto.fromBase64(row.weixin_id);
+
+            callback(row);
+        }
+        else{
+            callback(null);
+        }
+
+
     });
 };
 
-exports.dealer_add = function(add_data, callback){
+exports.dealer_add = function(add_data, register_dealer_id, callback){
     callback = callback == null? nop:callback;
 
     if(add_data.name == null || add_data.password == null){
@@ -1235,8 +1839,8 @@ exports.dealer_add = function(add_data, callback){
     add_data.name = crypto.toBase64(add_data.name);
     add_data.weixin_id = crypto.toBase64(add_data.weixin_id);
 
-    var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7})";
-    sql = sql.format(add_data.name, add_data.password, 1, add_data.region, add_data.phone_number, add_data.weixin_id, Date.now() / 1000, Date.now() / 1000);
+    var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified, register_dealer_id,dealer_type) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7}, {8}, {9})";
+    sql = sql.format(add_data.name, add_data.password, 1, add_data.region, add_data.phone_number, add_data.weixin_id, Date.now() / 1000, Date.now() / 1000, register_dealer_id, add_data.dealer_type);
 
     query(sql,function(err,rows,fields){
         if(err){
@@ -1250,7 +1854,33 @@ exports.dealer_add = function(add_data, callback){
     });
 };
 
-exports.dealer_list = function(order_by, id, name,level, callback){
+exports.purchase_add = function(add_data, callback){
+    callback = callback == null? nop:callback;
+
+    if(add_data.seller_id == null || add_data.seller_id == 'NaN' || add_data.buyer_id == null || add_data.buyer_id == 'NaN'){
+        callback(null);
+        return;
+    }
+
+    add_data.seller_name = crypto.toBase64(add_data.seller_name);
+    add_data.buyer_name = crypto.toBase64(add_data.buyer_name);
+
+    var sql = "INSERT INTO t_purchase(seller_id, seller_name, buyer_id, buyer_name, room_count_purchased, purchase_date) VALUES({0},'{1}',{2},'{3}',{4},'{5}')";
+    sql = sql.format(add_data.seller_id, add_data.seller_name, add_data.buyer_id, add_data.buyer_name, add_data.room_count_purchased, Math.ceil(Date.now() / 1000));
+
+    query(sql,function(err,rows,fields){
+        if(err){
+            callback(null);
+            logger.log( err);
+            throw err;
+        }
+        else{
+            callback(rows);
+        }
+    });
+};
+
+exports.dealer_list = function(order_by, id, name,level,register_dealer_id, callback){
     callback = callback == null? nop:callback;
 
     if(id == null){
@@ -1262,14 +1892,30 @@ exports.dealer_list = function(order_by, id, name,level, callback){
     var sql = '';
 
     if(id == ''){
-        sql = 'SELECT * from t_managers '
-            + 'WHERE level = {3} and name like "%{1}%" order by {2} ';
-        sql = sql.format(id, name, order_by, level);
+        if(parseInt(register_dealer_id) == 1){
+            sql = 'SELECT * from t_managers '
+                + 'WHERE level = {3} and name like "%{1}%" order by {2} ';
+            sql = sql.format(id, name, order_by, level);
+        }
+        else{
+            sql = 'SELECT * from t_managers '
+                + 'WHERE register_dealer_id={4} and level = {3} and name like "%{1}%" order by {2} ';
+            sql = sql.format(id, name, order_by, level, register_dealer_id);
+        }
+
     }
     else{
-        sql = 'SELECT * from t_managers '
-            + 'WHERE level = {3} and id = {0} and name like "%{1}%" order by {2} ';
-        sql = sql.format(id, name, order_by, level);
+        if(parseInt(register_dealer_id) == 1){
+            sql = 'SELECT * from t_managers '
+                + 'WHERE level = {3} and id = {0} and name like "%{1}%" order by {2} ';
+            sql = sql.format(id, name, order_by, level);
+        }
+        else{
+            sql = 'SELECT * from t_managers '
+                + 'WHERE register_dealer_id={4} and level = {3} and id = {0} and name like "%{1}%" order by {2} ';
+            sql = sql.format(id, name, order_by, level, register_dealer_id);
+        }
+
     }
 
 
@@ -1317,7 +1963,7 @@ exports.room_list = function(order_by, id, name,level, dealer_id, dealer_level, 
     else{
         if(id == ''){
             sql = 'SELECT * from t_rooms '
-                + 'WHERE dealer_id = "{1}" order by {0} ';
+                + 'WHERE dealer_id = {1} order by {0} ';
             sql = sql.format(order_by, dealer_id);
         }
         else{
@@ -1350,6 +1996,348 @@ exports.room_list = function(order_by, id, name,level, dealer_id, dealer_level, 
             if(row.user_name3 != null && row.user_name3 != '')
                 rows[i].user_name3 = crypto.fromBase64(rows[i].user_name3);
         }
+
+        callback(rows);
+    });
+};
+
+exports.purchase_list = function(query_data, callback){
+    callback = callback == null? nop:callback;
+
+    var id = query_data.id;
+    var seller_name = query_data.seller_name;
+    var order_by = query_data.order_by;
+    var buyer_name = query_data.buyer_name;
+    var buyer_id = query_data.dealer_id;
+
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+    seller_name = crypto.toBase64(seller_name);
+    buyer_name = crypto.toBase64(buyer_name);
+
+    var sql = 'SELECT * from t_purchase WHERE ';
+
+    var first = true;
+
+    if(id != ''){
+        sql = 'id = {0} ';
+        sql = sql.format(id);
+        first = false;
+    }
+
+    if(buyer_id != ''){
+        if(first){
+            sql += 'buyer_id = {0} '.format(buyer_id);
+            first = false;
+        }
+        else{
+            sql += 'and buyer_id = {0} '.format(buyer_id);
+            first = false;
+        }
+
+    }
+
+    if(seller_name != ''){
+        if(first){
+            sql += 'seller_name = "{0}" '.format(seller_name);
+            first = false;
+        }
+        else{
+            sql += 'and seller_name = "{0}" '.format(seller_name);
+        }
+
+    }
+
+    if(buyer_name != ''){
+        if(first){
+            sql += 'buyer_name = "{0}" '.format(buyer_name);
+            first = false;
+        }
+        else{
+            sql += 'and buyer_name = "{0}" '.format(buyer_name);
+        }
+
+    }
+
+    if(order_by != ''){
+        sql += 'order by {0}'.format(order_by);
+    }
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        for(var i = 0; i < rows.length; ++i){
+            var row = rows[i];
+            if(row.seller_name != null && row.seller_name != '')
+                rows[i].seller_name = crypto.fromBase64(rows[i].seller_name);
+            if(row.buyer_name != null && row.buyer_name != '')
+                rows[i].buyer_name = crypto.fromBase64(rows[i].buyer_name);
+        }
+
+        callback(rows);
+    });
+};
+
+exports.sale_list = function(query_data, callback){
+    callback = callback == null? nop:callback;
+
+    var id = query_data.id;
+    var seller_name = query_data.seller_name;
+    var order_by = query_data.order_by;
+    var buyer_name = query_data.buyer_name;
+    var seller_id = query_data.dealer_id;
+
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+    seller_name = crypto.toBase64(seller_name);
+    buyer_name = crypto.toBase64(buyer_name);
+
+    var sql_sale_type_0 = 'select * from (select t1.id, t1.seller_id, c.phone_number as seller_phone_number, t1.seller_name, t1.buyer_id, t1.buyer_phone_number, t1.buyer_name, t1.room_count_saled, t1.sale_type, t1.payment_status, t1.sale_date, t1.before_room_count_of_seller, t1.after_room_count_of_seller, t1.before_room_count_of_buyer, t1.after_room_count_of_buyer from (select b.id, b.seller_id, a.phone_number as buyer_phone_number, b.seller_name, b.buyer_id, b.buyer_name, b.room_count_purchased as room_count_saled, b.sale_type, b.payment_status, b.purchase_date as sale_date, b.before_room_count_of_seller, b.after_room_count_of_seller, b.before_room_count_of_buyer, b.after_room_count_of_buyer from t_managers a inner join t_purchase b on a.id=b.buyer_id and sale_type=0) t1 inner join t_managers c on t1.seller_id=c.id) t2 ';
+    var sql_sale_type_1 = 'select * from (select t1.id, t1.seller_id, bb.phone_number as seller_phone_number, t1.seller_name, t1.buyer_id, cc.phone_number as buyer_phone_number, t1.buyer_name, t1.room_count_purchased as room_count_saled, t1.sale_type, t1.payment_status, t1.purchase_date as sale_date, t1.before_room_count_of_seller, t1.after_room_count_of_seller, t1.before_room_count_of_buyer, t1.after_room_count_of_buyer from (select * from t_purchase aa where seller_id={0} and sale_type=1) t1 inner join t_users cc on t1.buyer_id=cc.userid inner join t_managers bb on t1.seller_id=bb.id) t2 '.format(seller_id);
+    var where_sql = 'WHERE ';
+
+    var first = true;
+
+    if(id != ''){
+        where_sql = 't2.id = {0} ';
+        where_sql = where_sql.format(id);
+        first = false;
+    }
+
+    if(seller_id != ''){
+        if(first){
+            where_sql += 't2.seller_id = {0} '.format(seller_id);
+            first = false;
+        }
+        else{
+            where_sql += 'and t2.seller_id = {0} '.format(seller_id);
+            first = false;
+        }
+
+    }
+
+    if(seller_name != ''){
+        if(first){
+            where_sql += 't2.seller_name = "{0}" '.format(seller_name);
+            first = false;
+        }
+        else{
+            where_sql += 't2.and seller_name = "{0}" '.format(seller_name);
+        }
+
+    }
+
+    if(buyer_name != ''){
+        if(first){
+            where_sql += 't2.buyer_name = "{0}" '.format(buyer_name);
+            first = false;
+        }
+        else{
+            where_sql += 'and t2.buyer_name = "{0}" '.format(buyer_name);
+        }
+
+    }
+
+    if(order_by != ''){
+        where_sql += 'order by t2.{0}'.format(order_by);
+    }
+
+    sql_sale_type_0 += where_sql;
+    sql_sale_type_1 += where_sql;
+
+    logger.log( sql_sale_type_0);
+
+    query(sql_sale_type_0, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        var sale_type_0_data = rows;
+
+        query(sql_sale_type_1, function(err, rows1, fields) {
+            if (err) {
+                callback(null);
+                logger.log(err);
+                throw err;
+            }
+
+            var sale_type_1_data = rows1;
+
+            var ret_data = [];
+
+            for(var i = 0; i < sale_type_0_data.length; ++i){
+                var row = sale_type_0_data[i];
+                if(row.seller_name != null && row.seller_name != '')
+                    row.seller_name = crypto.fromBase64(row.seller_name);
+                if(row.buyer_name != null && row.buyer_name != '')
+                    row.buyer_name = crypto.fromBase64(row.buyer_name);
+                ret_data.push(row);
+            }
+
+            for(var j = 0; j < sale_type_1_data.length; ++j){
+                var row1 = sale_type_1_data[j];
+                if(row1.seller_name != null && row1.seller_name != '')
+                    row1.seller_name = crypto.fromBase64(row1.seller_name);
+                if(row1.buyer_name != null && row1.buyer_name != '')
+                    row1.buyer_name = crypto.fromBase64(row1.buyer_name);
+                ret_data.push(row1);
+            }
+
+
+
+            callback(ret_data);
+        });
+
+        // callback(rows);
+    });
+};
+
+exports.update_purchase = function (update_data, callback) {
+    callback = callback == null? nop:callback;
+
+    if(update_data.id == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'UPDATE t_purchase SET ';
+
+    if(update_data.seller_name != null){
+        update_data.seller_name = crypto.toBase64(update_data.seller_name);
+        sql += 'seller_name = "{0}", '.format(update_data.seller_name);
+    }
+
+    if(update_data.buyer_name != null){
+        update_data.buyer_name = crypto.toBase64(update_data.buyer_name);
+        sql += 'buyer_name = "{0}", '.format(update_data.buyer_name);
+    }
+
+    if(update_data.room_count_purchased != null){
+        sql += 'room_count_purchased = {0}, '.format(update_data.room_count_purchased);
+    }
+
+    if(update_data.payment_status != null){
+        sql += 'payment_status = {0}, '.format(update_data.payment_status);
+    }
+
+    if(update_data.before_room_count_of_seller != null){
+        sql += 'before_room_count_of_seller = {0}, '.format(update_data.before_room_count_of_seller);
+    }
+
+    if(update_data.after_room_count_of_seller != null){
+        sql += 'after_room_count_of_seller = {0}, '.format(update_data.after_room_count_of_seller);
+    }
+
+    if(update_data.before_room_count_of_buyer != null){
+        sql += 'before_room_count_of_buyer = {0}, '.format(update_data.before_room_count_of_buyer);
+    }
+
+    if(update_data.after_room_count_of_buyer != null){
+        sql += 'after_room_count_of_buyer = {0}, '.format(update_data.after_room_count_of_buyer);
+    }
+
+    if(update_data.sale_type != null){
+        sql += 'sale_type = {0}, '.format(update_data.sale_type);
+    }
+
+    sql = sql.substring(0, sql.length - 2);
+
+    sql += ' WHERE id = ' + update_data.id;
+    ////console.log(sql);
+    query(sql, function(err, rows, fields) {
+
+        if(err){
+            callback(null);
+        }
+        else{
+            callback(true);
+        }
+    });
+};
+
+exports.purchase_detail_info = function(id, callback){
+    callback = callback == null? nop:callback;
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'SELECT * from t_purchase ' + 'WHERE id={0}';
+    sql = sql.format(id);
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            logger.log(err);
+            throw err;
+        }
+
+        var row = rows[0];
+        if(row.seller_name != null && row.seller_name != '')
+            row.seller_name = crypto.fromBase64(row.seller_name);
+        if(row.buyer_name != null && row.buyer_name != '')
+            row.buyer_name = crypto.fromBase64(row.buyer_name);
+
+        callback(row);
+    });
+};
+
+exports.purchase_list_with_dealer_id = function(dealer_id, id_type, callback){
+    callback = callback == null? nop:callback;
+
+    if(dealer_id == null){
+        callback(null);
+        return;
+    }
+    var sql = '';
+
+    if(id_type == 0){
+        // in case seller_id;
+        sql = 'SELECT * from t_purchase ' + 'WHERE seller_id={0}';
+    }
+    else{
+        // in case buyer_id;
+        sql = 'SELECT * from t_purchase ' + 'WHERE buyer_id={0}';
+    }
+    sql = sql.format(dealer_id);
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            logger.log(err);
+            throw err;
+        }
+
+        if(!rows || rows.length == 0){
+            callback(null);
+            return;
+        }
+
+        for(var i = 0; i < rows.length; i++){
+            var row = rows[i];
+            if(row.seller_name != null && row.seller_name != '')
+                row.seller_name = crypto.fromBase64(row.seller_name);
+            if(row.buyer_name != null && row.buyer_name != '')
+                row.buyer_name = crypto.fromBase64(row.buyer_name);
+        }
+
 
         callback(rows);
     });
@@ -1477,6 +2465,35 @@ exports.room_detail_info = function(uuid, callback){
 
         callback(row);
     });
+};
+
+exports.close_room = function (create_dealer_id, roomId, callback) {
+    callback = callback == null? nop:callback;
+    if(roomId == null){
+        callback(false);
+    }
+
+    var sql = '';
+    if(create_dealer_id){
+        sql = "DELETE FROM t_rooms WHERE id = '{0}' AND dealer_id={1}";
+        sql = sql.format(roomId, create_dealer_id);
+    }
+    else{
+        sql = "DELETE FROM t_rooms WHERE id = '{0}'";
+        sql = sql.format(roomId);
+    }
+
+    // console.log(sql);
+    query(sql,function(err,rows,fields){
+        if(err){
+            callback(false);
+            throw err;
+        }
+        else{
+            callback(true);
+        }
+    });
+
 };
 
 

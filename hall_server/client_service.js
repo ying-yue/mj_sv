@@ -76,7 +76,7 @@ app.get('/login',function(req,res){
 					}
 					else{
 						//如果房间不在了，表示信息不同步，清除掉用户记录
-						db.set_room_id_of_user(data.userid,null);
+						db.set_room_id_of_user(data.userid,null, roomId);
 					}
 					http.send(res,0,"ok",ret);
 				});
@@ -346,6 +346,21 @@ app.get('/get_user_status',function(req,res){
 			http.send(res,1,"get gems failed.");
 		}
 	});
+});
+
+app.get('/get_room_ids_of_user',function(req,res){
+    if(!check_account(req,res)){
+        return;
+    }
+    var account = req.query.account;
+    db.get_room_ids_of_user(account,function(data){
+        if(data != null){
+            http.send(res,0,"ok",{room_ids:data.room_ids_useable});
+        }
+        else{
+            http.send(res,1,"get room_ids_useable failed.");
+        }
+    });
 });
 
 app.get('/get_message',function(req,res){

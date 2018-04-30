@@ -112,16 +112,14 @@ app.get('/enter_room',function(req,res){
 });
 
 app.get('/get_rooms_ids',function(req,res){
-	roomMgr.get_rooms_ids(function (ret) {
-        http.send(res,0,'ok',{ret:ret});
-    });
+    var ret = roomMgr.get_rooms_ids(req.query.roomid);
+	http.send(res,0,'ok',{roomId: req.query.roomid, roomInfo: ret});
 
 });
 
 app.get('/add_roominfo_in_rooms',function(req,res){
-    roomMgr.add_roominfo_in_rooms(req, function () {
-        http.send(res,0,'ok');
-    });
+    roomMgr.add_roominfo_in_rooms(req.query);
+	http.send(res,0,'ok', {roomId: req.query.roomId});
 
 });
 

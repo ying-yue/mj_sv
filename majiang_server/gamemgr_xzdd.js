@@ -134,6 +134,11 @@ function mopai(game,seatIndex, pai_to_put) {
     let mahjongs = data.holds;
     let pai = null;
 
+    let roomId = roomMgr.getUserRoom(data.userId);
+
+    Logger.log(`User (id-${data.userId}, seatIndex-${data.seatIndex}) is starting checking GangTing`, roomId);
+    Logger.log(`Holds of user- ${data.holds}`, roomId);
+
 
 
     // console.log(game.mahjongs);
@@ -188,6 +193,9 @@ function mopai(game,seatIndex, pai_to_put) {
     if(pai == null){
         console.log("mopai null");
     }
+
+    Logger.log(`User (id-${data.userId}, seatIndex-${data.seatIndex}) is starting checking GangTing`, roomId);
+    Logger.log(`Holds of user- ${data.holds}`, roomId);
     return pai;
 }
 
@@ -3759,6 +3767,9 @@ function doUserMoPai(game){
     turnSeat.lastFangGangSeat = -1;
     turnSeat.guoHuFan = -1;
 
+    let roomId = roomMgr.getUserRoom(turnSeat.userId);
+    Logger.info(`doUserMoPai--User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
+
     // checkCanTingPai(game, turnSeat);
 
 
@@ -3778,12 +3789,19 @@ function doUserMoPai(game){
     });
     function func() {
         if(!isTinged(turnSeat)){
+            Logger.info(`fake_mopai start- User(userID: ${turnSeat.userId})`, roomId);
+            Logger.info(`fake_mopai--User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
             let p = fake_mopai(game,game.turn);//game.mahjongs[game.currentIndex];
+            Logger.info(`fake_mopai end--User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
             if(p != null && p != -1){
                 turnSeat.holds.push(parseInt(p));
                 turnSeat.countMap[p]++;
+                Logger.info(`User(userID: ${turnSeat.userId}): put ${p} in holds, countMap`, roomId);
+                Logger.info(`--User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
 
                 checkCanHu(game,turnSeat, p);
+                Logger.info(`User(userID: ${turnSeat.userId}): turnSeat.canHu ${turnSeat.canHu} `, roomId);
+                Logger.info(`turnSeat.canHu-User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
                 if(turnSeat.canHu && !(game.mahjongs.length - game.currentIndex <= game.seatCount)){
                     turnSeat.canChuPai = true;
 
@@ -3793,6 +3811,7 @@ function doUserMoPai(game){
                     else{
                         // turnSeat.countMap[p]--;
                         // turnSeat.holds.pop();
+                        Logger.info(`User(userID: ${turnSeat.userId}): turnSeat.holds ${turnSeat.holds} `, roomId);
 
                         checkCanAnGang(game,turnSeat);
                         checkCanJiaGang(game,turnSeat);
@@ -3818,12 +3837,12 @@ function doUserMoPai(game){
             }
         }
 
-
+        Logger.info(`mopai-User(userID: ${turnSeat.userId}): game.turn ${game.turn}`, roomId);
         let pai = mopai(game,game.turn);
         game.paiMopaiByUser = pai;
 
 
-        let roomId = roomMgr.getUserRoom(turnSeat.userId);
+        // let roomId = roomMgr.getUserRoom(turnSeat.userId);
         Logger.info(`User(userID: ${turnSeat.userId}) is mopai. mopai: ${pai}`, roomId);
 
         if(isTinged(turnSeat)){
@@ -3834,7 +3853,13 @@ function doUserMoPai(game){
         if(pai == -1){
             if(game.haidi_hu_count == 0){
                 setTimeout(function () {
-                    doGameOver(game,turnSeat.userId);
+
+                    if(!game.is_game_over){
+                        console.log('turnSeat.userId: ' + turnSeat.userId);
+                        game.is_game_over = true;
+                        doGameOver(game,turnSeat.userId);
+                    }
+
                 }, 500);
             }
 
@@ -4720,6 +4745,7 @@ function construct_game_base_info(game){
 }
 
 function store_game(game,callback){
+    console.log('game.gameIndex: ' + game.gameIndex);
     db.create_game(game.roomInfo.uuid,game.gameIndex,game.baseInfoJson,callback);
 }
 
@@ -4806,6 +4832,7 @@ exports.begin = function(roomId) {
         gameOverData:null,
         is_haidi:false,
         haidi_hu_count: 0,
+        is_game_over:false,
 
 
 
@@ -5774,14 +5801,23 @@ exports.chuPai = function(userId,pai){
 
     //如果没有人有操作，则向下一家发牌，并通知他出牌
     if(!hasActions){
+        var one = false;
         setTimeout(function(){
-            Logger.log(`Sent 'guo_notify_push' to all users because some user don't have action.`, roomId);
-            userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
-            seatData.folds.push(game.chuPai);
-            game.chuPai = -1;
-            game.currentGangVal = [];
-            moveToNextUser(game);
-            doUserMoPai(game);
+            if(!one){
+                one = true;
+                Logger.log(`Sent 'guo_notify_push' to all users because some user don't have action.`, roomId);
+                userMgr.broacastInRoom('guo_notify_push',{userId:seatData.userId,pai:game.chuPai},seatData.userId,true);
+                seatData.folds.push(game.chuPai);
+                game.chuPai = -1;
+                game.currentGangVal = [];
+                moveToNextUser(game);
+                Logger.log(`one= ${one}`, roomId);
+                doUserMoPai(game);
+            }
+
+            Logger.log(`doUserMoPai next - one= ${one}`, roomId);
+
+
         },500);
     }
 };

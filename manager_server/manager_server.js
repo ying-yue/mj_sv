@@ -7,20 +7,29 @@ var Global = require('../utils/Global');
 var app = express();
 
 
-let creatingRooms = {};
+var creatingRooms = {};
 
-let REN_SHU = [4,3,3,2];
-let JU_SHU = [4,8,12];
-let GANG_FEN = [1,2,4];
+var REN_SHU = [4,3,3,2];
+var JU_SHU = [4,8,12];
+var GANG_FEN = [1,2,4];
 
-let ROOM_STATE_EMPTY = 0;
-let ROOM_STATE_GAME_STARTING = 1;
-let ROOM_STATE_SUCCESS_FINISHED = 2;
-let ROOM_STATE_STRONG = 3;
-let ROOM_STATE_UNSUCCESS_FINISHED = 4;
-let ROOM_STATE_CREATED = 5;
-let ROOM_STATE_FAILD = 6;
-let SeatCount = 0;
+var ROOM_STATE_EMPTY = 0;
+var ROOM_STATE_GAME_STARTING = 1;
+var ROOM_STATE_SUCCESS_FINISHED = 2;
+var ROOM_STATE_STRONG = 3;
+var ROOM_STATE_UNSUCCESS_FINISHED = 4;
+var ROOM_STATE_CREATED = 5;
+var ROOM_STATE_FAILD = 6;
+var SeatCount = 0;
+
+
+var SELLER_NAME_SEARCH = 1;
+var ALL_SEARCH =0;
+var BUYER_NAME_SEARCH = 2;
+var DATE_SEARCH_TODAY = 3;
+var DATE_SEARCH_LAST_7 = 4;
+var DATE_SEARCH_THIS_MONTH = 5;
+var DATE_SEARCH_THIS_YEAR = 6;
 
 function send(res,ret){
 	var str = JSON.stringify(ret);
@@ -34,6 +43,7 @@ function send(res,ret){
 }
 
 function fromIntToDateString(val) {
+    val = parseInt(val);
     if (val == null)
         return "";
 
@@ -44,6 +54,43 @@ function fromIntToDateString(val) {
     var date = new Date(val * 1000);
 
     return date.Format("yyyy-MM-dd hh:mm:ss");
+}
+
+function checkConditionOfDate(search_id, purchase_date){
+    search_id = parseInt(search_id);
+    var current_date = new Date();
+    var current_year = current_date.getFullYear();
+    var current_month = current_date.getMonth();
+    var current_day = current_date.getDate();
+
+    var search_year = current_year;
+    var search_month = current_month;
+    var search_date = current_day;
+
+    switch (search_id){
+        case DATE_SEARCH_TODAY:
+            search_date = current_day - 1;
+            break;
+        case DATE_SEARCH_LAST_7:
+            search_date = current_day - 7;
+            break;
+        case DATE_SEARCH_THIS_MONTH:
+            search_date = 1;
+            break;
+        case DATE_SEARCH_THIS_YEAR:
+            search_month = 0;
+            search_date = 1;
+            break;
+        default:
+            return true;
+    }
+
+    var diff_millisec = current_date - new Date(search_year, search_month, search_date);
+
+    if(diff_millisec >= Date.now() - purchase_date * 1000){
+        return true;
+    }
+    return false;
 }
 
 function fromInt13ToDateString(val) {
@@ -128,6 +175,8 @@ app.get('/dealer_detail',function(req,res){
         loginToken = null;
 
     var id = req.query.id;
+    var other_id = req.query.other_id;
+    var phone_number = req.query.phone_number;
 
     if (id == null)
         id = "";
@@ -139,21 +188,232 @@ app.get('/dealer_detail',function(req,res){
         data:{}
     };
 
-    db.read_dealer_info(id, function(data){
-        ret.msg = "操作失败";
-        if (data && data.length > 0){
-            var data = data[0];
 
-            ret.code = 0;
-            ret.msg = "操作成功";
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
 
-            ret.data = data;
-            ret.data.name = crypto.fromBase64(ret.data.name);
-            ret.data.weixin_id = crypto.fromBase64(ret.data.weixin_id);
-
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
         }
 
-        send(res,ret);
+        var dealer_level = data[0].level;
+        var dealer_id = data[0].id;
+
+        db.read_dealer_info({dealer_id:dealer_id, other_id: other_id, phone_number: phone_number}, function(data){
+            ret.msg = "操作失败";
+            if (data){
+
+                ret.code = 0;
+                ret.msg = "操作成功";
+
+                ret.data = data;
+                if(dealer_id == 1){
+                    ret.data.room_count_useable = '非';
+                    ret.data.dealer_type = 'Admin';
+                }
+                else{
+                    if(ret.data.dealer_type == 1)
+                        ret.data.dealer_type = '普通代理';
+                    else
+                        ret.data.dealer_type = '高级代理';
+                }
+
+
+                // db.purchase_list_with_dealer_id(dealer_id, 0, function(rows){
+                //     if (rows){
+                //         ret.code = 0;
+                //         ret.msg = "操作成功";
+                //
+                //         var room_count_saled = 0;
+                //         for(var i = 0; i < rows.length; i++){
+                //             var row = rows[i];
+                //             room_count_saled += row.room_count_purchased;
+                //         }
+                //
+                //         ret.data.room_count_used = room_count_saled;
+                //     }
+                //
+                //     send(res,ret);
+                // });
+
+            }
+            send(res,ret);
+        });
+    });
+});
+
+app.get('/player_detail',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var id = req.query.id;
+    var user_id = req.query.user_id;
+
+    if (id == null)
+        id = "";
+
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var dealer_level = data[0].level;
+        var dealer_id = data[0].id;
+
+        db.get_user_data_by_userid(user_id, function(data){
+            ret.msg = "操作失败";
+            if (data){
+
+                ret.code = 0;
+                ret.msg = "操作成功";
+
+                // data.name = crypto.fromBase64(data.name);
+
+                ret.data = data;
+            }
+
+            send(res,ret);
+        });
+    });
+});
+
+app.get('/charge_room_cards',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var room_count_to_charge = req.query.room_count_to_charge;
+    var other_id = req.query.other_id;
+    var sale_type = req.query.sale_type;
+
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var dealer_level = data[0].level;
+        var dealer_id = data[0].id;
+
+        var useable_room_count = parseInt(data[0].room_count_useable);
+        if(useable_room_count < parseInt(room_count_to_charge) && dealer_id != 1){
+            ret.code = 1;
+            ret.msg = 'too many room_count_to_charge!';
+            send(res,ret);
+            return;
+        }
+
+        if(parseInt(sale_type) == 0){
+            db.update_managers_info({phone_number:other_id, room_count_added:room_count_to_charge}, function (d) {
+                if(d){
+                    db.update_managers_info({id:dealer_id, room_count_added:room_count_to_charge * (-1)}, function (d1) {
+                        if(d1){
+                            db.insert_data_in_purchase({from_id:dealer_id, to_id: other_id, room_count_added:room_count_to_charge, sale_type: parseInt(sale_type)}, function (d3) {
+                                if(d3) {
+                                    ret.code = 0;
+                                    ret.msg = '操作成功';
+                                }
+                                send(res,ret);
+                            });
+                            // db.change_dealer_in_room_table({from_id:dealer_id, to_id: other_id, room_count_added:room_count_to_charge}, function (d2) {
+                            //     if(d2) {
+                            //
+                            //     }
+                            //     else{
+                            //         send(res,ret);
+                            //     }
+                            //
+                            // });
+                        }
+                        else{
+                            send(res,ret);
+                        }
+
+                    });
+
+                }
+                else{
+                    send(res,ret);
+                }
+
+            });
+        }
+        else{
+            db.update_managers_info({id:dealer_id, room_count_added:room_count_to_charge * (-1)}, function (d1) {
+                if(d1){
+                    db.update_user_gem_and_charge_amount(other_id, room_count_to_charge, null, function (d3) {
+                        if(d3) {
+                            db.insert_data_in_purchase({from_id:dealer_id, to_id: other_id, room_count_added:room_count_to_charge, sale_type: parseInt(sale_type)}, function (d1) {
+                                if (d1) {
+                                    ret.code = 0;
+                                    ret.msg = '操作成功';
+                                }
+                                send(res,ret);
+                            });
+
+                        }
+                        else{
+                            send(res,ret);
+                        }
+
+                    });
+                    // db.change_dealer_in_room_table({from_id:dealer_id, to_id: 0, room_count_added:room_count_to_charge}, function (d2) {
+                    //     if(d2) {
+                    //         var room_id_list = d2;
+                    //
+                    //     }
+                    //     else{
+                    //         send(res,ret);
+                    //     }
+                    //
+                    // });
+                }
+                else{
+                    send(res,ret);
+                }
+
+            });
+        }
+
+
     });
 });
 
@@ -221,28 +481,46 @@ app.get('/add_dealer',function(req,res){
         weixin_id: weixin_id
     };
 
-    db.get_dealer(name, phone_number, weixin_id, function(r_data){
-        ret.msg = "操作失败";
-        if (r_data && r_data.length > 0) {
-            ret.msg = "Duplicate dealer";
-            send(res,ret);
-        }
-        else{
-            db.dealer_add(add_data, function(data){
-                ret.msg = "操作失败";
-                if (data){
 
-                    ret.code = 0;
-                    ret.msg = "操作成功";
-                }
+    db.read_dealer_account(null, null,loginToken, function(data) {
+        var ret = {
+            code: 1,
+            msg: "无法找到用户信息",
+            time: new Date(),
+            data: {}
+        };
+
+        if (data == null || data.length == 0) {
+            send(res, ret);
+            return;
+        }
+
+        var register_dealer_id = data[0].id;
+        db.get_dealer(name, phone_number, weixin_id, function(r_data){
+            ret.msg = "操作失败";
+            if (r_data && r_data.length > 0) {
+                ret.msg = "Duplicate dealer";
                 send(res,ret);
+            }
+            else{
+                db.dealer_add(add_data, register_dealer_id, function(ret_data){
+                    ret.msg = "操作失败";
+                    if (ret_data){
+
+                        ret.code = 0;
+                        ret.msg = "操作成功";
+                    }
+                    send(res,ret);
 
 
-            });
-        }
+                });
+            }
 
 
+        });
     });
+
+
 
 
 
@@ -301,8 +579,9 @@ app.get('/dealer_list',function(req,res){
         // ret.msg = "操作失败";
         ret.data.page_no = page_no;
         ret.data.page_size = page_size;
+        var register_dealer_id = data[0].id;
 
-        db.dealer_list(order_by, id, name,level, function(data){
+        db.dealer_list(order_by, id, name,level, register_dealer_id, function(data){
             if (data){
                 ret.data.total_count = data.length;
                 ret.data.page_count = Math.ceil(data.length / page_size);
@@ -317,6 +596,10 @@ app.get('/dealer_list',function(req,res){
                         temp = data[startNo + i];
                         temp.date_created = fromIntToDateString(temp.date_created);
                         temp.date_modified = fromIntToDateString(temp.date_modified);
+                        if(temp.dealer_type == 1)
+                            temp.dealer_type = '普通代理';
+                        else
+                            temp.dealer_type = '高级代理';
                         // temp.name = (temp.lv == 4) ? "管理者" : temp.name;
 
                         ret.data.list.push(temp);
@@ -330,7 +613,6 @@ app.get('/dealer_list',function(req,res){
         });
     });
 });
-
 
 app.get('/room_list',function(req,res){
     var loginToken = req.query.token;
@@ -393,6 +675,26 @@ app.get('/room_list',function(req,res){
                 ret.data.page_count = Math.ceil(data.length / page_size);
                 ret.data.list = [];
 
+                var total_used_room_count = 0;
+                var total_remain_room_count = 0;
+
+                for (var i = 0; i< data.length; i++){
+                    var temp = {};
+                    temp = data[i];
+
+
+                    if(temp.room_state != 0)
+                        total_used_room_count++;
+                    else{
+                        total_remain_room_count++;
+                    }
+                }
+
+                ret.data.total_room_count = data.length;
+                ret.data.total_used_room_count = total_used_room_count;
+                ret.data.total_remain_room_count = total_remain_room_count;
+
+
                 var startNo = (page_no-1) * page_size;
 
                 for (var i = 0; i< page_size; i++){
@@ -441,6 +743,385 @@ app.get('/room_list',function(req,res){
     });
 });
 
+app.get('/purchase_list',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var order_by = req.query.order_by;
+
+    if (order_by == null)
+        order_by = "";
+
+    var id = req.query.id;
+
+    if (id == null)
+        id = "";
+
+    var search_id = req.query.search_id;
+
+    var seller_name = req.query.seller_name;
+    if (seller_name == null || search_id != SELLER_NAME_SEARCH)
+        seller_name = "";
+    var buyer_name = req.query.buyer_name;
+
+    if (buyer_name == null || search_id != BUYER_NAME_SEARCH)
+        buyer_name = "";
+
+    var page_no = 1;
+
+    if (req.query.page_no!=null && req.query.page_no!="" && req.query.page_no!="NaN")
+        page_no = parseInt(req.query.page_no);
+
+    var page_size = req.query.page_size?parseInt(req.query.page_size):30;
+
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var dealer_level = data[0].level;
+        var dealer_id = data[0].id;
+
+
+        // ret.code = 1;
+        // ret.msg = "操作失败";
+        ret.data.page_no = page_no;
+        ret.data.page_size = page_size;
+
+        var query_data = {
+            order_by: order_by,
+            id: id,
+            seller_name: seller_name,
+            buyer_name: buyer_name,
+            dealer_id: dealer_id,
+            dealer_level: dealer_level
+        };
+
+        db.purchase_list(query_data, function(data){
+            if (data){
+                ret.data.total_count = data.length;
+                ret.data.page_count = Math.ceil(data.length / page_size);
+                ret.data.list = [];
+
+                var startNo = (page_no-1) * page_size;
+
+                for (var i = 0; i< page_size; i++){
+                    if (data[startNo + i] != null){
+                        var temp = {};
+
+                        temp = data[startNo + i];
+
+                        if(temp.payment_status == 1){
+                            temp.payment_status = "支付";
+                        }
+                        else{
+                            temp.payment_status = "没有付款";
+                        }
+
+                        var result_data = {
+                            'id': temp.id,
+                            'seller_id': temp.seller_id,
+                            'seller_name': temp.seller_name,
+                            'buyer_id': temp.buyer_id,
+                            'buyer_name': temp.buyer_name,
+                            'room_count_purchased':temp.room_count_purchased,
+                            'payment_status': temp.payment_status,
+                            'purchase_date': fromIntToDateString(temp.purchase_date)
+                        };
+
+                        if(checkConditionOfDate(search_id, temp.purchase_date)){
+                            ret.data.list.push(result_data);
+                        }
+
+
+
+                    }
+                }
+                if(ret.data.list.length > 0){
+                    ret.code = 0;
+                    ret.msg = '操作成功';
+                }
+                else{
+                    ret.code = 1;
+                    ret.msg = 'no data';
+                }
+
+            }
+            send(res,ret);
+        });
+    });
+});
+
+app.get('/purchase_detail',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var id = req.query.id;
+
+
+
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    if (id == null || id == 0 || id == ''){
+        send(res,ret);
+        return;
+    }
+
+    db.purchase_detail_info(id, function(data){
+        ret.msg = "操作失败";
+        if (data){
+            ret.code = 0;
+            ret.msg = "操作成功";
+
+            data.purchase_date = fromIntToDateString(data.purchase_date);
+
+            ret.data = data;
+        }
+
+        send(res,ret);
+    });
+});
+
+app.get('/sale_list',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var order_by = req.query.order_by;
+
+    if (order_by == null)
+        order_by = "";
+
+    var id = req.query.id;
+
+    if (id == null)
+        id = "";
+
+    var search_id = req.query.search_id;
+
+    var seller_name = req.query.seller_name;
+    if (seller_name == null || search_id != SELLER_NAME_SEARCH)
+        seller_name = "";
+    var buyer_name = req.query.buyer_name;
+
+    if (buyer_name == null || search_id != BUYER_NAME_SEARCH)
+        buyer_name = "";
+
+    var page_no = 1;
+
+    if (req.query.page_no!=null && req.query.page_no!="" && req.query.page_no!="NaN")
+        page_no = parseInt(req.query.page_no);
+
+    var page_size = req.query.page_size?parseInt(req.query.page_size):30;
+
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var dealer_level = data[0].level;
+        var dealer_id = data[0].id;
+
+
+        // ret.code = 1;
+        // ret.msg = "操作失败";
+        ret.data.page_no = page_no;
+        ret.data.page_size = page_size;
+
+        var query_data = {
+            order_by: order_by,
+            id: id,
+            seller_name: seller_name,
+            buyer_name: buyer_name,
+            dealer_id: dealer_id,
+            dealer_level: dealer_level
+        };
+
+        db.sale_list(query_data, function(data){
+            if (data){
+                ret.data.total_count = data.length;
+                ret.data.page_count = Math.ceil(data.length / page_size);
+                ret.data.list = [];
+
+                ret.data.total_saled_room_count = 0;
+                for(var i = 0; i < data.length; i++){
+                    ret.data.total_saled_room_count += parseInt(data[i].room_count_saled);
+                }
+
+                var startNo = (page_no-1) * page_size;
+
+                for (var i = 0; i< page_size; i++){
+                    if (data[startNo + i] != null){
+                        var temp = {};
+
+                        temp = data[startNo + i];
+
+                        if(parseInt(temp.payment_status) == 1){
+                            temp.payment_status = "支付";
+                        }
+                        else{
+                            temp.payment_status = "没有付款";
+                        }
+
+                        if(parseInt(temp.sale_type) == 0){
+                            temp.sale_type = "代理到代理";
+                        }
+                        else{
+                            temp.sale_type = "代理到玩家";
+                        }
+
+                        var result_data = {
+                            'id': temp.id,
+                            'seller_id': temp.seller_id,
+                            'seller_phone_number': temp.seller_phone_number,
+                            'seller_name': temp.seller_name,
+                            'buyer_id': temp.buyer_id,
+                            'buyer_phone_number': temp.buyer_phone_number,
+                            'buyer_name': temp.buyer_name,
+                            'room_count_saled':temp.room_count_saled,
+                            'sale_type':temp.sale_type,
+                            'payment_status': temp.payment_status,
+                            'sale_date': fromIntToDateString(temp.sale_date),
+                            'before_room_count_of_seller': temp.before_room_count_of_seller,
+                            'after_room_count_of_seller': temp.after_room_count_of_seller,
+                            'before_room_count_of_buyer': temp.before_room_count_of_buyer,
+                            'after_room_count_of_buyer': temp.after_room_count_of_buyer,
+                        };
+
+                        if(checkConditionOfDate(search_id, temp.sale_date)){
+                            ret.data.list.push(result_data);
+                        }
+
+
+
+                    }
+                }
+                if(ret.data.list.length > 0){
+                    ret.code = 0;
+                    ret.msg = '操作成功';
+                }
+                else{
+                    ret.code = 1;
+                    ret.msg = 'no data';
+                }
+
+            }
+            send(res,ret);
+        });
+    });
+});
+
+app.get('/edit_account',function(req,res){
+    var token = req.query.token;
+    var oldPwd = req.query.old_password;
+    var newPwd = req.query.new_password;
+
+    db.read_dealer_account(null, null,token, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var data = data[0];
+
+        // if (data.isvalid == 0 || data.lv == 0){//封闭，或者没权利进入后台
+        //     ret.msg = "无法修改密码！";
+        //     send(res,ret);
+        //     return;
+        // }
+
+        if (data.password != oldPwd){
+            ret.msg = "请输入正确的密码！";
+            send(res,ret);
+            return;
+        }
+
+        db.update_password(data.id, newPwd, function(data){
+            if (data) {
+                ret.code = 0;
+                ret.msg = "密码修改成功";
+            }
+            else
+                ret.msg = "操作失败";
+            send(res,ret);
+        });
+    });
+});
+
+app.get('/edit_items', function (req, res) {
+   var edit_type =  req.query.type;
+   var id = req.query.id;
+   var newCnt = req.query.newCnt;
+
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    switch (edit_type){
+        case "sale_payment_status":
+            if(newCnt == '没有付款')
+                newCnt = 0;
+            else
+                newCnt = 1;
+            var update_data = {
+                id: id,
+                payment_status: newCnt
+            };
+
+            db.update_purchase(update_data, function (data) {
+                if(data){
+                    ret.code = 0;
+                    ret.msg = '操作成功';
+                }
+                else{
+                    ret.code = 1;
+                    ret.msg = 'database error';
+                }
+                send(res,ret);
+            });
+            return;
+    }
+
+    send(res,ret);
+
+
+});
 
 app.get('/create_empty_rooms',function(req,res){
     var loginToken = req.query.token;
@@ -461,6 +1142,10 @@ app.get('/create_empty_rooms',function(req,res){
 
     if (room_count == null || room_count == '')
         room_count = 1;
+    else
+        room_count = parseInt(room_count);
+
+    var purchase_id = req.query.purchase_id;
 
     if (req.query.mahjongtype == '北京麻将')
         req.query.mahjongtype = 0;
@@ -496,12 +1181,28 @@ app.get('/create_empty_rooms',function(req,res){
             return;
         }
 
+
         var dealer_id = data[0].id;
         var dealer_name = data[0].name;
 
-        req.query.dealer_id = dealer_id;
+        var buyer_id = 0;
+        var buyer_name = '';
 
-        let onCreate = function(res1, ret){
+        if(dealer_id != Global.ADMINISTRATOR_ID && parseInt(data[0].room_count_useable) < parseInt(room_count)){
+            ret.msg = 'too many room count.';
+            send(res,ret);
+            return;
+        }
+        if (purchase_id != null && purchase_id != '' && purchase_id != 0 && purchase_id != '0'){
+            //방을 창조하면서 구매자에게 직접 충진할때이디.
+            req.query.dealer_id = purchase_id;
+        }
+        else{
+            req.query.dealer_id = dealer_id;
+        }
+
+
+        var onCreate = function(res1, ret){
             var ret1 = {
                 code:1,
                 msg:"no data",
@@ -512,19 +1213,111 @@ app.get('/create_empty_rooms',function(req,res){
             if(ret){
                 ret1.code = 0;
                 ret1.msg = "操作成功";
+
+                if (purchase_id != null && purchase_id != '' && purchase_id != 0 && purchase_id != 'NaN'){
+                    // 방을 창조하면서 구매자에게 직접 충진할때 t_purchase표에 보관시킨다.
+                    var data_to_save = {
+                        'seller_id': dealer_id,
+                        'seller_name': dealer_name,
+                        'buyer_id': buyer_id,
+                        'buyer_name': buyer_name,
+                        'room_count_purchased': room_count
+                    };
+
+                    db.purchase_add(data_to_save, function(added_data){
+                        if (added_data == null || added_data.length == 0){
+                            ret1.msg = 'Failed adding in purchase table.';
+                        }
+                        send(res,ret1);
+                    });
+                    db.update_managers_info({id:buyer_id, room_count_added:room_count});
+
+                }
+                else{
+                    db.update_managers_info({id:dealer_id, room_count_created:room_count, room_count_useable:-room_count});
+                    send(res,ret1);
+                }
             }
-            send(res,ret1);
+            else{
+                send(res,ret1);
+            }
+
         };
 
+        if (purchase_id != null && purchase_id != '' && purchase_id != 0 && purchase_id != 'NaN'){
+            //방을 창조하면서 구매자에게 직접 충진할때이디.
+            db.read_dealer_account_by_dealer_id(purchase_id, function(buyer_data){
+                if (buyer_data == null || buyer_data.length == 0){
+                    ret.msg = 'no exist purchase_id.';
+                    send(res,ret);
+                    return;
+                }
 
-        createRoom(dealer_name, req.query, 0, '', '', room_count, onCreate);
+                buyer_id = buyer_data[0].id;
+                buyer_name = buyer_data[0].name;
+
+                createRoom(dealer_name, req.query, 0, '', '', room_count, onCreate);
+            });
+        }
+        else{
+            createRoom(dealer_name, req.query, 0, '', '', room_count, onCreate);
+        }
+
+
+
     });
 });
 
+app.get('/close_room',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var roomId = req.query.roomId;
+
+
+
+    var ret = {
+        code:1,
+        msg:"无法找到用户信息",
+        time:new Date(),
+        data:{}
+    };
+
+    if (roomId == null || roomId == ''){
+        send(res,ret);
+        return;
+    }
+
+    db.read_dealer_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+        var create_dealer_id = data[0].id;
+
+        db.close_room(create_dealer_id, roomId, function(data){
+            if (data){
+                ret.code = 0;
+                ret.msg = '操作成功';
+                db.update_managers_info({id:create_dealer_id, room_count_created:-1, room_count_useable:1});
+            }
+            send(res,ret);
+        });
+    });
+});
 
 function generateRoomId(){
-    let roomId = "";
-    for(let i = 0; i < 6; ++i){
+    var roomId = "";
+    for(var i = 0; i < 6; ++i){
         if(i == 0){
             while (true){
                 roomId = '';
@@ -573,13 +1366,14 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
 
         callback(null);
     }
+    var really_created_room_count = 0;
 
-    let fnCreate = function(){
 
-        var really_created_room_count = 0;
 
-        for(var n = 0; n < room_count; n++) {
-            let roomId = generateRoomId();
+
+    for(var n = 0; n < room_count; n++) {
+        var fnCreate = function(){
+            var roomId = generateRoomId();
             var ret = {
                 code: 1,
                 msg: "无法找到用户信息",
@@ -587,27 +1381,28 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
                 data: {}
             };
 
-            http.get('127.0.0.1', config.GAME_HTTP_PORT, "/get_rooms_ids", {creator: creator}, function (ret1, data) {
+            http.get('127.0.0.1', config.GAME_HTTP_PORT, "/get_rooms_ids", {roomid: roomId}, function (ret1, data) {
                 //console.log(data);
                 if (ret1) {
-                    if (data[roomId] != null || creatingRooms[roomId] != null) {
+                    // data = data.ret;
+                    if (data.roomInfo != null || creatingRooms[data.roomId] != null) {
                         fnCreate();
                     }
                     else {
-                        creatingRooms[roomId] = true;
-                        db.is_room_exist(roomId, function (ret) {
+                        creatingRooms[data.roomId] = true;
+                        db.is_room_exist(data.roomId, function (ret) {
 
                             if (ret) {
-                                delete creatingRooms[roomId];
+                                delete creatingRooms[data.roomId];
                                 fnCreate();
                             }
                             else {
-                                let createTime = Math.ceil(Date.now() / 1000);
-                                let baseScore = 2;
+                                var createTime = Math.ceil(Date.now() / 1000);
+                                var baseScore = 2;
 
-                                let roomInfo = {
+                                var roomInfo = {
                                     uuid: "",
-                                    id: roomId,
+                                    id: data.roomId,
                                     numOfGames: 0,
                                     createTime: createTime,
                                     nextButton: 0,
@@ -634,15 +1429,15 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
 
                                 SeatCount = REN_SHU[roomConf.renshu];
 
-                                if (roomConf.type == "xlch") {
-                                    roomInfo.gameMgr = require("./gamemgr_xlch");
-                                }
-                                else {
-                                    roomInfo.gameMgr = require("../majiang_server/gamemgr_xzdd");
-                                }
+                                // if (roomConf.type == "xlch") {
+                                //     roomInfo.gameMgr = require("./gamemgr_xlch");
+                                // }
+                                // else {
+                                //     roomInfo.gameMgr = require("../majiang_server/gamemgr_xzdd");
+                                // }
 
 
-                                for (let i = 0; i < SeatCount; ++i) {
+                                for (var i = 0; i < SeatCount; ++i) {
                                     roomInfo.seats.push({
                                         userId: 0,
                                         score: 0,
@@ -660,22 +1455,25 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
 
 
                                 //写入数据库
-                                let conf = roomInfo.conf;
+                                var conf = roomInfo.conf;
 
 
-                                db.create_room(roomInfo.id, roomInfo.conf, ip, port, createTime, function (uuid, error) {
-                                    delete creatingRooms[roomId];
+                                db.create_room(roomInfo.id, roomInfo.conf, ip, port, createTime, function (uuid, error, row) {
+                                    console.log(roomInfo);
+                                    console.log("row.id: " + row.id);
+                                    delete creatingRooms[row.id];
                                     if (uuid != null) {
-                                        really_created_room_count++;
+
 
                                         roomInfo.uuid = uuid;
-                                        http.get(config.GAME_SERVER_IP,
+                                        http.get('127.0.0.1',
                                             config.GAME_HTTP_PORT,
                                             "/add_roominfo_in_rooms",
-                                            {roomId: roomId, roomInfo: roomInfo}, function (ret1, data) {
-                                                logger.info(`Room(${roomId}) is created. This room's conf is ${roomInfo.conf}.`, roomId);
+                                            {roomId: roomInfo.id, roomInfo: JSON.stringify(roomInfo)}, function (ret1, data) {
+                                                logger.info(`Room(${data.roomId}) is created. This room's conf is ${roomInfo.conf}.`, data.roomId);
+                                                really_created_room_count++;
                                                 if (really_created_room_count == room_count) {
-                                                    callback(0, roomId);
+                                                    callback(0, true);
                                                 }
 
                                             });
@@ -683,7 +1481,7 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
 
                                     }
                                     else {
-                                        let errStr = '';
+                                        var errStr = '';
                                         if (typeof error == 'string') {
                                             errStr = error;
                                         }
@@ -711,8 +1509,9 @@ function createRoom(creator,roomConf,gems,ip,port, room_count, callback){
 
 
             });
-        }
-    };
+        };
+        fnCreate();
+    }
 
-    fnCreate();
+
 };

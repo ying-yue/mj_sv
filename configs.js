@@ -1,6 +1,6 @@
 ﻿// let HALL_IP = "49.79.224.152";
-let HALL_IP = "192.168.1.31";
-let GAME_SERVER_IP = "192.168.1.31";
+let HALL_IP = "192.168.1.12";
+let GAME_SERVER_IP = "192.168.1.12";
 // let HALL_IP = "192.168.1.49";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
@@ -35,7 +35,7 @@ exports.account_server = function(){
         DEALDER_API_IP:LOCAL_IP,
         DEALDER_API_PORT:12581,
         VERSION:'20161227',
-        APP_WEB:'http://49.79.224.152:81/link/link.htm',
+        APP_WEB:'http://39.106.27.41/mahjongAppDownload/link.htm',
     };
 };
 

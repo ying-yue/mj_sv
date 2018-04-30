@@ -1,7 +1,12 @@
 // var HALL_IP = "120.24.59.70";
-let HALL_IP = "61.147.199.192";
+let HALL_IP = "39.106.27.41";
+let GAME_SERVER_IP = "39.106.27.41";
+// let HALL_IP = "61.147.199.192";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;
+let GAME_HTTP_PORT = 9003;
+
+let MANAGER_PORT = 9004;
 
 let ACCOUNT_PRI_KEY = "^&*#$%()@";
 let ROOM_PRI_KEY = "~!@#$(*&^%$&";
@@ -12,7 +17,7 @@ exports.mysql = function(){
     return {
         HOST:'localhost',
         USER:'root',
-        PSWD:'root',
+        PSWD:'kelong501',
         DB:'nodejs',
         PORT:3306,
     }
@@ -30,7 +35,7 @@ exports.account_server = function(){
         DEALDER_API_IP:LOCAL_IP,
         DEALDER_API_PORT:12581,
         VERSION:'20161227',
-        APP_WEB:'http://61.147.199.192:81/link/link.htm',
+        APP_WEB:'http://39.106.27.41/mahjongAppDownload/link.htm',
     };
 };
 
@@ -66,5 +71,15 @@ exports.game_server = function(){
         //暴露给客户端的接口
         CLIENT_IP:HALL_IP,
         CLIENT_PORT:10000,
+    };
+};
+
+//管理者页面
+exports.manager_server = function(){
+    return {
+        CLIENT_PORT:MANAGER_PORT,
+        HALL_IP:HALL_IP,
+        GAME_SERVER_IP: GAME_SERVER_IP,
+        GAME_HTTP_PORT: GAME_HTTP_PORT
     };
 };

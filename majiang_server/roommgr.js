@@ -87,15 +87,16 @@ function constructRoomFromDb(dbdata){
 	return roomInfo;
 }
 
-exports.get_rooms_ids = function (callback) {
-    callback(rooms);
+exports.get_rooms_ids = function (roomid, callback) {
+    return rooms[roomid];
 };
 
 exports.add_roominfo_in_rooms = function (req, callback) {
-    rooms[req.roomId] = req.roomInfo;
+    rooms[req.roomId] = JSON.parse(req.roomInfo);
+    rooms[req.roomId].gameMgr = require("./gamemgr_xzdd");
     totalRooms++;
 
-    callback();
+    return true;
 };
 
 exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
@@ -233,7 +234,7 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 	fnCreate();
 };
 
-exports.destroy = function(roomId, is_success){
+exports.destroy = function(roomId, is_success, is_no_game){
 	let roomInfo = rooms[roomId];
 	if(roomInfo == null){
 		return;
@@ -243,7 +244,7 @@ exports.destroy = function(roomId, is_success){
 		let userId = roomInfo.seats[i].userId;
 		if(userId > 0){
 			delete userLocation[userId];
-			db.set_room_id_of_user(userId,null);
+			db.set_room_id_of_user(userId,null, null);
 		}
 	}
 	
@@ -254,7 +255,8 @@ exports.destroy = function(roomId, is_success){
 	if(!is_success){
 		room_state = ROOM_STATE_UNSUCCESS_FINISHED;
 	}
-    db.update_room_data({roomId: roomId, is_full: 1, room_state: room_state, game_end_time: parseInt(Date.now() / 1000)});
+	if(!is_no_game)
+    	db.update_room_data({roomId: roomId, is_full: 1, room_state: room_state, game_end_time: parseInt(Date.now() / 1000)});
 };
 
 exports.getTotalRooms = function(){
@@ -410,9 +412,9 @@ exports.exitRoom = function(userId){
 		}
 	}
 	
-	db.set_room_id_of_user(userId,null);
+	db.set_room_id_of_user(userId,null, roomId);
 
 	if(numOfPlayers == 0){
-		exports.destroy(roomId);
+		exports.destroy(roomId, false, true);
 	}
 };
