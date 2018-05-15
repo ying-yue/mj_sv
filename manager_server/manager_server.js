@@ -43,13 +43,14 @@ function send(res,ret){
 }
 
 function fromIntToDateString(val) {
-    val = parseInt(val);
-    if (val == null)
+
+    if (val == null || val == "")
         return "";
 
     if (val == 0) {
         return "";
     }
+    val = parseInt(val);
 
     var date = new Date(val * 1000);
 

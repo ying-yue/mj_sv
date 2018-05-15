@@ -8,7 +8,7 @@ let userLocation = {};
 let totalRooms = 0;
 
 let REN_SHU = [4,3,3,2];
-let JU_SHU = [4,8,12];
+let JU_SHU = [4,8,16];
 let GANG_FEN = [1,2,4];
 
 let ROOM_STATE_EMPTY = 0;

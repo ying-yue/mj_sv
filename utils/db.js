@@ -3,8 +3,6 @@ var crypto = require('./crypto');
 var logger = require('./logger');
 var Global = require('./Global');
 var pool = null;
-
-
 let ROOM_STATE_EMPTY = 0;
 let ROOM_STATE_GAME_STARTING = 1;
 let ROOM_STATE_SUCCESS_FINISHED = 2;
@@ -18,27 +16,53 @@ function nop(a,b,c,d,e,f,g){
 }
 
 function query(sql,callback){
-    pool.getConnection(function(err,conn){
-        if(err){
-            callback(err,null,null);
-        }else{
-            console.log('------------------SQL CONTENT!---------------');
-            console.log(sql);
-            console.log('---------------------------------------------')
-            try{
-                conn.query(sql,function(qerr,vals,fields){
-                    //释放连接
-                    conn.release();
-                    //事件驱动回调
-                    callback(qerr,vals,fields);
-                });
-            }
-            catch (e){
-                var a = 1;
-            }
+    // sql = 'select tt from t_rooms id=909099';
+    try{
+        pool.getConnection(function(err,conn){
+            if(err){
+                logger.error('-------------------- SQL ERROR START ----------------------');
+                logger.error('SQL command: ' + sql);
+                logger.error(err);
+                logger.error('-------------------- SQL ERROR END ----------------------');
+                callback(err,null,null);
+            }else{
+                // logger.log('------------------SQL CONTENT!---------------');
+                // logger.log(sql);
+                // logger.log('---------------------------------------------')
+                try{
+                    conn.query(sql,function(qerr,vals,fields){
+                        //释放连接
+                        conn.release();
+                        //事件驱动回调
+                        if(qerr){
+                            logger.error('-------------------- SQL ERROR START ----------------------');
+                            logger.error('SQL command: ' + sql);
+                            logger.error(qerr);
+                            logger.error('-------------------- SQL ERROR END ----------------------');
+                        }
 
-        }
-    });
+                        callback(qerr,vals,fields);
+                    });
+                }
+                catch (e){
+                    logger.error('-------------------- SQL ERROR START ----------------------');
+                    logger.error('SQL command: ' + sql);
+                    logger.error(e);
+                    logger.error('-------------------- SQL ERROR END ----------------------');
+                    callback([],null,null);
+                }
+
+            }
+        });
+    }
+    catch (e){
+        logger.error('-------------------- SQL ERROR START ----------------------');
+        logger.error('SQL command: ' + sql);
+        logger.error(e);
+        logger.error('-------------------- SQL ERROR END ----------------------');
+        callback([],null,null);
+    }
+
 };
 
 exports.init = function(config){
@@ -62,7 +86,7 @@ exports.is_account_exist = function(account,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             if(rows.length > 0){
@@ -91,7 +115,8 @@ exports.create_account = function(account,password,callback){
                 return;
             }
             callback(false);
-            throw err;
+            logger.error(err);
+            // throw err;
         }
         else{
             callback(true);
@@ -110,7 +135,9 @@ exports.get_account_info = function(account,password,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
+            // throw err;
         }
 
         if(rows.length == 0){
@@ -140,7 +167,10 @@ exports.is_user_exist = function(account,callback){
     var sql = 'SELECT userid FROM t_users WHERE account = "' + account + '"';
     query(sql, function(err, rows, fields) {
         if (err) {
-            throw err;
+            logger.error(err);
+            callback(false);
+            return;
+            // throw err;
         }
 
         if(rows.length == 0){
@@ -164,7 +194,9 @@ exports.get_user_data = function(account,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
+            // throw err;
         }
 
         if(rows.length == 0){
@@ -187,7 +219,9 @@ exports.get_user_data_by_userid = function(userid,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
+            // throw err;
         }
 
         if(rows.length == 0){
@@ -213,12 +247,15 @@ exports.add_user_gems = function(userid,gems,callback){
     query(sql,function(err,rows,fields){
         if(err){
             // console.log(err);
+            // callback(null);
+            logger.error(err);
+            // return;
             callback(false);
-            return;
+            // return;
         }
         else{
             callback(rows.affectedRows > 0);
-            return;
+            // return;
         }
     });
 };
@@ -233,8 +270,11 @@ exports.get_gems = function(account,callback){
     var sql = 'SELECT gems FROM t_users WHERE account = "' + account + '"';
     query(sql, function(err, rows, fields) {
         if (err) {
+
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
+            // throw err;
         }
 
         if(rows.length == 0){
@@ -257,7 +297,8 @@ exports.get_room_ids_of_user = function(account,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
         }
 
         if(rows.length == 0){
@@ -280,7 +321,8 @@ exports.get_user_history = function(userId,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
         }
 
         if(rows.length == 0){
@@ -335,7 +377,8 @@ exports.update_user_history = function(userId,history,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(false);
-            throw err;
+            logger.error(err);
+            return;
         }
 
         if(rows.length == 0){
@@ -359,7 +402,8 @@ exports.get_games_of_room = function(room_uuid,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
         }
 
         if(rows.length == 0){
@@ -382,7 +426,8 @@ exports.get_detail_of_game = function(room_uuid,index,callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
         }
 
         if(rows.length == 0){
@@ -412,7 +457,9 @@ exports.create_user = function(account,name,coins,gems,sex,headimg,callback){
     // console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
-            throw err;
+            callback(false);
+            logger.error(err);
+            return;
         }
         callback(true);
     });
@@ -437,8 +484,10 @@ exports.update_user_gem_and_charge_amount = function (user_id, gems, charge_amou
 
     query(sql, function(err, rows, fields) {
         if (err) {
+            callback(false);
             logger.log(err);
-            throw err;
+            // throw err;
+            return;
         }
         callback(true);
     });
@@ -456,7 +505,7 @@ exports.update_order_results_by_order_id = function (order_id, status) {
     query(sql, function(err, rows, fields) {
         if (err) {
             logger.log(err);
-            throw err;
+            // throw err;
         }
     });
 };
@@ -472,8 +521,9 @@ exports.update_order_results = function (order_id, status, buyer_id, trade_no) {
 
     query(sql, function(err, rows, fields) {
         if (err) {
+
             logger.log(err);
-            throw err;
+            // throw err;
         }
     });
 };
@@ -491,7 +541,7 @@ exports.update_goods_sales = function (goods_id, sales) {
     query(sql, function(err, rows, fields) {
         if (err) {
             logger.log(err);
-            throw err;
+            // throw err;
         }
     });
 };
@@ -515,7 +565,10 @@ exports.update_user_info = function(userid,name,headimg,sex,callback){
     // console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
-            throw err;
+            callback(null);
+            logger.error(err);
+            return;
+            // throw err;
         }
         callback(rows);
     });
@@ -596,7 +649,9 @@ exports.get_user_base_info = function(userid,callback){
     // console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
-            throw err;
+            callback(null);
+            logger.error(err);
+            return;
         }
         rows[0].name = crypto.fromBase64(rows[0].name);
         callback(rows[0]);
@@ -609,7 +664,8 @@ exports.is_room_exist = function(roomId,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             var result = false;
@@ -636,7 +692,8 @@ exports.cost_gems = function(userid,cost,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             callback(rows.length > 0);
@@ -656,7 +713,8 @@ exports.set_room_id_of_user = function(userId,roomId,roomIdToRemove,callback){
         if(err){
             // console.log(err);
             callback(false);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             if(rows && roomIdToRemove){
@@ -755,7 +813,8 @@ exports.get_room_id_of_user = function(userId,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(null);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             if(rows.length > 0){
@@ -784,7 +843,8 @@ exports.create_room = function(roomId,conf,ip,port,create_time,callback){
     query(sql,function(err,row,fields){
         if(err){
             callback(null, err);
-            throw err;
+            logger.error(err);
+            // throw err;
         }
         else{
             callback(uuid, null, roomId);
@@ -798,7 +858,8 @@ exports.get_room_uuid = function(roomId,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(null);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             callback(rows[0].uuid);
@@ -815,7 +876,8 @@ exports.update_seat_info = function(roomId,seatIndex,userId,icon,name,callback){
     query(sql,function(err,row,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
+            // return;
         }
         else{
             callback(true);
@@ -836,7 +898,8 @@ exports.update_room_as_origin = function (room_id, callback) {
     query(sql,function(err,row,fields) {
         if (err) {
             callback(false);
-            throw err;
+            logger.error(err);
+            // throw err;
         }
         else {
             callback(true);
@@ -869,7 +932,7 @@ exports.update_room_data = function(room_data,callback){
     query(sql,function(err,row,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             if(room_data.room_state != ROOM_STATE_EMPTY && room_data.room_state != ROOM_STATE_GAME_STARTING){
@@ -877,7 +940,9 @@ exports.update_room_data = function(room_data,callback){
                 query(sql1,function(err1,row1,fields1){
                     if(err1){
                         callback(false);
-                        throw err1;
+                        logger.error(err);
+                        // throw err1;
+                        // return;
                     }
                     else{
                         if(row1 != null && row1.length > 0 && row1[0].dealer_id > 0){
@@ -904,7 +969,8 @@ exports.update_num_of_turns = function(roomId,numOfTurns,callback){
     query(sql,function(err,row,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
+            // throw err;
         }
         else{
             callback(true);
@@ -921,7 +987,7 @@ exports.update_next_button = function(roomId,nextButton,callback){
     query(sql,function(err,row,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(true);
@@ -939,6 +1005,7 @@ exports.get_order_by_id = function(order_id, callback){
         if (err) {
             logger.log(err);
             callback(null, err);
+            return;
         }
         if(rows && rows.length > 0){
             callback(rows[0]);
@@ -960,7 +1027,8 @@ exports.get_room_addr = function(roomId,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(false,null,null);
-            throw err;
+            logger.error(err);
+            return;
         }
         if(rows.length > 0){
             callback(true,rows[0].ip,rows[0].port);
@@ -982,7 +1050,8 @@ exports.get_room_data = function(roomId,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(null);
-            throw err;
+            logger.error(err);
+            return;
         }
         if(rows.length > 0){
             if(rows[0].user_name0){
@@ -1020,7 +1089,7 @@ exports.delete_room = function(roomId,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(true);
@@ -1045,7 +1114,7 @@ exports.create_gems_buy_history = function(info,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(null);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(rows.insertId);
@@ -1062,7 +1131,7 @@ exports.create_order = function(order_info, callback){
         if(err){
             callback(null);
             logger.log( err);
-            throw err;
+
         }
         else{
             callback(rows.insertId);
@@ -1078,7 +1147,7 @@ exports.create_game = function(room_uuid,index,base_info,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(null);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(rows.insertId);
@@ -1097,7 +1166,7 @@ exports.delete_games = function(room_uuid,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(true);
@@ -1115,7 +1184,7 @@ exports.saveScoreInRoomTable = function (room_uuid, scoreDataToSave, callback) {
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             var row = rows[0];
@@ -1166,7 +1235,7 @@ exports.archive_games = function(room_uuid,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             exports.delete_games(room_uuid,function(ret){
@@ -1183,7 +1252,7 @@ exports.update_game_action_records = function(room_uuid,index,actions,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(true);
@@ -1203,7 +1272,7 @@ exports.update_game_result = function(room_uuid,index,result,callback){
     query(sql,function(err,rows,fields){
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             callback(true);
@@ -1225,7 +1294,8 @@ exports.get_goods = function(gems, callback){
     query(sql, function(err, rows, fields) {
         if (err) {
             logger.log(err);
-            throw err;
+            logger.error(err);
+            return;
         }
         callback(rows[0]);
     });
@@ -1249,7 +1319,7 @@ exports.get_message = function(type,version,callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             if(rows.length > 0){
@@ -1270,7 +1340,7 @@ exports.get_unfull_room = function(callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback(false);
-            throw err;
+            logger.error(err);
         }
         else{
             if(rows.length > 0){
@@ -1305,6 +1375,7 @@ exports.get_start_pais_pai_control = function(user_id, callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback({error_code:Global.ERROR_DATABASE_CONNECTION, error_msg: 'database connection error.', data: null});
+            logger.error(err);
         }
         else{
             if(rows.length > 0){
@@ -1342,6 +1413,7 @@ exports.get_need_pai_control = function(user_id, callback){
     query(sql, function(err, rows, fields) {
         if(err){
             callback({error_code:Global.ERROR_DATABASE_CONNECTION, error_msg: 'database connection error.', data: null});
+            logger.error(err);
         }
         else{
             if(rows.length > 0){
@@ -1389,7 +1461,7 @@ exports.read_dealer_account = function(adminId, adminPwd, token, callback){
         if (err) {
             callback(null);
             logger.log(err);
-            throw err;
+            return;
         }
 
         logger.log( rows);
@@ -1416,7 +1488,7 @@ exports.read_dealer_account_by_dealer_id = function(dealer_id, callback){
         if (err) {
             callback(null);
             logger.log(err);
-            throw err;
+            return;
         }
 
         logger.log( rows);
@@ -1439,6 +1511,7 @@ exports.update_token_managers = function(id,token){
     query(sql, function(err, rows, fields) {
 
         if(err){
+            logger.error(err);
             //console.log(ret.err);
             return false;
         }
@@ -1458,6 +1531,7 @@ exports.update_password = function(id,newPwd, callback){
     query(sql, function(err, rows, fields) {
 
         if(err){
+            logger.error(err);
             //console.log(ret.err);
             callback(false);
         }
@@ -1568,6 +1642,7 @@ exports.update_managers_info = function(update_data, callback){
         if(err){
             //console.log(ret.err);
             callback(null);
+            logger.error(err);
             return false;
         }
         else{
@@ -1595,6 +1670,7 @@ exports.insert_data_in_purchase = function(update_data, callback){
             if(err){
                 //console.log(ret.err);
                 callback(null);
+                logger.error(err);
                 return false;
             }
             else{
@@ -1630,6 +1706,7 @@ exports.insert_data_in_purchase = function(update_data, callback){
                     if (err1) {
                         //console.log(ret.err);
                         callback(null);
+                        logger.error(err1);
                         return false;
                     }
                     else {
@@ -1649,6 +1726,7 @@ exports.insert_data_in_purchase = function(update_data, callback){
             if(err){
                 //console.log(ret.err);
                 callback(null);
+                logger.error(err);
                 return false;
             }
             else{
