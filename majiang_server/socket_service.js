@@ -378,17 +378,37 @@ exports.start = function(config,mgr){
 			}
 
 			//如果是房主，则只能走解散房间
-			if(roomMgr.isCreator(userId)){
-				return;
+			if(roomMgr.isCreator(roomId, userId)){
+
+                userMgr.broacastInRoom('room_close_before_game_notify_push',userId,userId,false);
+                userMgr.broacastInRoom('disconnect',userId,userId,false);
+                var userIdList = roomMgr.exitRoomWhenBeforeGame(userId);
+                db.set_room_id_of_user(userId,null, null);
+                if(userIdList){
+                	for(var i = 0; i < userIdList.length; i++){
+                        userMgr.del(userIdList[i]);
+                        db.set_room_id_of_user(userIdList[i],null, null);
+					}
+				}
+
+
+			}
+			else{
+
+                userMgr.broacastInRoom('exit_notify_push',userId,userId,false);
+                socket.gameMgr.remove_dice_signal(userId, roomId);
+                roomMgr.delete_user_data(userId);
+                userMgr.del(userId);
+                // socket.emit('exit_result');
+                // socket.emit('exit_result');
 			}
 
 			//通知其它玩家，有人退出了房间
-			userMgr.broacastInRoom('exit_notify_push',userId,userId,false);
 
-			roomMgr.exitRoom(userId);
-			userMgr.del(userId);
 
-			socket.emit('exit_result');
+			// userMgr.del(userId);
+
+            socket.emit('exit_result');
 			socket.disconnect();
 		});
 
@@ -442,7 +462,7 @@ exports.start = function(config,mgr){
 				return;
 			}
 
-			var ret = socket.gameMgr.dissolveRequest(roomId,userId);
+			var ret = socket.gameMgr.dissolveRequest(roomId,userId, data);
 			if(ret != null && ret.error_code != 1){
 				var dr = ret.dr;
 				var ramaingTime = (dr.endTime - Date.now()) / 1000;

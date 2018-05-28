@@ -465,6 +465,8 @@ app.get('/add_dealer',function(req,res){
     var name = req.query.name;
     var phone_number = req.query.phone_number;
     var weixin_id = req.query.weixin_id;
+    var is_edit = req.query.is_edit;
+    var id = req.query.id;
 
     var ret = {
         code:1,
@@ -499,22 +501,38 @@ app.get('/add_dealer',function(req,res){
         var register_dealer_id = data[0].id;
         db.get_dealer(name, phone_number, weixin_id, function(r_data){
             ret.msg = "操作失败";
-            if (r_data && r_data.length > 0) {
+            if (!is_edit && r_data && r_data.length > 0) {
                 ret.msg = "Duplicate dealer";
                 send(res,ret);
             }
             else{
-                db.dealer_add(add_data, register_dealer_id, function(ret_data){
-                    ret.msg = "操作失败";
-                    if (ret_data){
+                if(is_edit){
+                    db.dealer_update(add_data, id, function(ret_data){
+                        ret.msg = "操作失败";
+                        if (ret_data){
 
-                        ret.code = 0;
-                        ret.msg = "操作成功";
-                    }
-                    send(res,ret);
+                            ret.code = 0;
+                            ret.msg = "操作成功";
+                        }
+                        send(res,ret);
 
 
-                });
+                    });
+                }
+                else{
+                    db.dealer_add(add_data, register_dealer_id, function(ret_data){
+                        ret.msg = "操作失败";
+                        if (ret_data){
+
+                            ret.code = 0;
+                            ret.msg = "操作成功";
+                        }
+                        send(res,ret);
+
+
+                    });
+                }
+
             }
 
 
@@ -1313,6 +1331,158 @@ app.get('/close_room',function(req,res){
             }
             send(res,ret);
         });
+    });
+});
+
+app.get('/user_list',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var order_by = req.query.order_by;
+
+    if (order_by == null)
+        order_by = "";
+
+    var userId = req.query.userId;
+
+    if (userId == null)
+        userId = "";
+
+    var name = req.query.name;
+
+    if (name == null)
+        name = "";
+
+    // var level = req.query.level;
+
+    // if (level == null)
+    //     level = "";
+
+    var page_no = 1;
+
+    if (req.query.page_no!=null && req.query.page_no!="" && req.query.page_no!="NaN")
+        page_no = parseInt(req.query.page_no);
+
+    var page_size = req.query.page_size?parseInt(req.query.page_size):30;
+
+    db.read_user_account(null, null,loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var userData = data[0];
+
+        ret.code = 0;
+        ret.msg = "操作成功";
+        ret.data.page_no = page_no;
+        ret.data.page_size = page_size;
+
+        db.read_user_list(userData.account, order_by, userId, nickname,level, function(data){
+            if (data){
+                ret.data.total_count = data.length;
+                ret.data.page_count = Math.ceil(data.length / page_size);
+                ret.data.list = [];
+
+                var startNo = (page_no-1) * page_size;
+
+                for (var i = 0; i< page_size; i++){
+                    if (data[startNo + i] != null){
+                        var temp = {};
+
+                        temp = data[startNo + i];
+                        temp.createdate = fromIntToDateString(temp.createdate);
+                        temp.onlinedate = fromIntToDateString(temp.onlinedate);
+                        temp.name = (temp.lv == 4) ? "管理者" : temp.name;
+
+                        ret.data.list.push(temp);
+                    }
+                }
+            }
+            send(res,ret);
+        });
+
+        // if (userData.isvalid != 0 && userData.lv != 0){//没封闭，也能登录到后台的账号？
+        //
+        // }
+        // else
+        //     send(res,ret);
+    });
+});
+
+app.get('/user_detail',function(req,res){
+    var loginToken = req.query.token;
+
+    if (loginToken == "")
+        loginToken = null;
+
+    var userId = req.query.userId;
+
+    if (userId == null)
+        userId = "";
+
+    db.read_user_account(null, null, loginToken, function(data){
+        var ret = {
+            code:1,
+            msg:"无法找到用户信息",
+            time:new Date(),
+            data:{}
+        };
+
+        if (data == null || data.length == 0){
+            send(res,ret);
+            return;
+        }
+
+        var userData = data[0];
+
+        if (userId == "" ) {
+            userId = userData.userid;
+        }
+
+        if (userData.isvalid != 0 && userData.lv != 0){//没封闭，也能登录到后台的账号？
+            db.read_user_info(userId, function(data){
+                ret.msg = "操作失败";
+                if (data && data.length > 0){
+                    var data = data[0];
+
+                    ret.code = 0;
+                    ret.msg = "操作成功";
+
+                    if (data.userid != userData.userid && userData.lv == 1){//初级管理者
+                        if (data.lv != 0){
+                            data.id = "*****";
+                            data.pwd = "*****";
+                        }
+                        else {
+                            data.id = "";
+                            data.pwd = "";
+                        }
+
+                        if (data.roomid != "")
+                            data.roomid = "*****";
+
+                        data.account = "*****";
+                    }
+
+                    data.name = data.lv==4 ? "管理者":data.name;
+                    ret.data = data;
+                }
+
+                send(res,ret);
+            });
+        }
+        else
+            send(res,ret);
     });
 });
 

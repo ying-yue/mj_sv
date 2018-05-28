@@ -147,6 +147,9 @@ exports.createRoom = function(creator,roomConf,gems,ip,port,callback){
 				else{
 					let createTime = Math.ceil(Date.now()/1000);
 					let baseScore = 2;
+					if(roomConf.mahjongtype == 0){
+						baseScore = 5;
+					}
 
 					let roomInfo = {
 						uuid:"",
@@ -317,10 +320,27 @@ exports.enterRoom = function(roomId,userId,userName,callback){
 			}
 			else{
 				//construct room.
-				room = constructRoomFromDb(dbdata);
-				//
-				let ret = fnTakeSeat(room);
-				callback(ret);
+				var baseInfoJson = JSON.parse(dbdata.base_info);
+				var player_count_base_info = baseInfoJson.playerCount;
+				var player_count = 0;
+				if(baseInfoJson.user_id0 > 0)
+                    player_count++;
+				else if(baseInfoJson.user_id1 > 0)
+                    player_count++;
+                else if(baseInfoJson.user_id2 > 0)
+                    player_count++;
+                else if(baseInfoJson.user_id3 > 0)
+                    player_count++;
+                if(dbdata.is_full == 1 || dbdata.room_state != ROOM_STATE_EMPTY || player_count >= player_count_base_info){
+                    callback(2);
+				}
+				else{
+                    room = constructRoomFromDb(dbdata);
+                    //
+                    let ret = fnTakeSeat(room);
+                    callback(ret);
+				}
+
 			}
 		});
 	}
@@ -386,6 +406,54 @@ exports.getUserSeat = function(userId){
 
 exports.getUserLocations = function(){
 	return userLocation;
+};
+
+exports.delete_user_data = function (userId) {
+    let location = userLocation[userId];
+    if(location == null)
+        return;
+    let roomId = location.roomId;
+    let seatIndex = location.seatIndex;
+    let room = rooms[roomId];
+    // delete userLocation[userId];
+    if(room == null || seatIndex == null) {
+        return;
+    }
+
+    let seat = room.seats[seatIndex];
+    seat.userId = 0;
+    seat.name = "";
+    delete userLocation[userId];
+    db.set_room_id_of_user(userId,null, null);
+    db.delete_user_info_in_room_table(userId,roomId);
+};
+exports.exitRoomWhenBeforeGame = function(userId){
+    let location = userLocation[userId];
+    if(location == null)
+        return;
+
+    let roomId = location.roomId;
+    let seatIndex = location.seatIndex;
+    let room = rooms[roomId];
+    // delete userLocation[userId];
+    if(room == null || seatIndex == null) {
+        return;
+    }
+
+    let seat = room.seats[seatIndex];
+    seat.userId = 0;
+    seat.name = "";
+
+    var userIdList = [];
+    for(let i = 0; i < room.seats.length; ++i){
+        if(room.seats[i].userId > 0){
+            userIdList.push(room.seats[i].userId);
+        }
+    }
+
+    exports.destroy(roomId, false, true);
+    db.delete_room(roomId);
+	return userIdList;
 };
 
 exports.exitRoom = function(userId){

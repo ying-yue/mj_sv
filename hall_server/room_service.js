@@ -75,6 +75,8 @@ app.get('/register_gs',function(req,res){
 
 function chooseServer(){
 	let serverinfo = null;
+	Logger.log('serverMap');
+    Logger.log(serverMap);
 	for(let s in serverMap){
 		let info = serverMap[s];
 		if(serverinfo == null){
@@ -105,6 +107,10 @@ exports.createRoom = function(account,userId,roomConf,fnCallback){
 				conf:roomConf
 			};
 			reqdata.sign = crypto.md5(userId + roomConf + data.gems + config.ROOM_PRI_KEY);
+
+			Logger.log('serverinfo.ip : ' + serverinfo.ip);
+            Logger.log('serverinfo.httpPort : ' + serverinfo.httpPort);
+
 			http.get(serverinfo.ip,serverinfo.httpPort,"/create_room",reqdata,function(ret,data){
 				//console.log(data);
 				if(ret){
@@ -135,6 +141,10 @@ exports.enterRoom = function(userId,name,roomId,fnCallback){
 
 	let checkRoomIsRuning = function(serverinfo,roomId,callback){
 		let sign = crypto.md5(roomId + config.ROOM_PRI_KEY);
+        Logger.log('serverinfo.ip : ' + serverinfo.ip);
+        Logger.log('serverinfo.httpPort : ' + serverinfo.httpPort);
+        console.log('serverinfo.ip : ' + serverinfo.ip);
+        console.log('serverinfo.httpPort : ' + serverinfo.httpPort);
 		http.get(serverinfo.ip,serverinfo.httpPort,"/is_room_runing",{roomid:roomId,sign:sign},function(ret,data){
 			if(ret){
 				if(data.errcode == 0 && data.runing == true){
@@ -165,10 +175,13 @@ exports.enterRoom = function(userId,name,roomId,fnCallback){
 				}
 				else{
                     Logger.error(`Error is occurred when user-${name}(userID-(${userId})). Error is (${data.errmsg})`, roomId);
+                    console.error(`Error is occurred when user-${name}(userID-(${userId})). Error is (${data.errmsg})`);
 					fnCallback(data.errcode,null);
 				}
 			}
 			else{
+				Logger.error('enterRoomReq, ret: ' + ret, roomId);
+                console.error('enterRoomReq, ret: ' + ret);
 				fnCallback(-1,null);
 			}
 		});
@@ -180,9 +193,17 @@ exports.enterRoom = function(userId,name,roomId,fnCallback){
 			enterRoomReq(serverinfo);
 		}
 		else{
+
+            Logger.error('serverinfo=null', roomId);
+            Logger.error('serverMap', roomId);
+            Logger.error(serverMap, roomId);
+            console.log('enterRoom serverinfo=null');
+
 			fnCallback(-1,null);					
 		}
 	};
+
+
 
 	db.get_room_addr(roomId,function(ret,ip,port){
 		if(ret){

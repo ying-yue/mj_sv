@@ -5,7 +5,7 @@ var http = require('../utils/http');
 var roomMgr = require("./roommgr");
 var userMgr = require("./usermgr");
 var tokenMgr = require("./tokenmgr");
-
+let Logger = require('../utils/logger');
 var app = express();
 var config = null;
 
@@ -82,6 +82,7 @@ app.get('/enter_room',function(req,res){
 	var roomId = req.query.roomid;
 	var sign = req.query.sign;
 	if(userId == null || roomId == null || sign == null){
+		Logger.error('enter_room')
 		http.send(res,1,"invalid parameters");
 		return;
 	}
@@ -98,9 +99,11 @@ app.get('/enter_room',function(req,res){
 	roomMgr.enterRoom(roomId,userId,name,function(ret){
 		if(ret != 0){
 			if(ret == 1){
+				console.log('room is full.');
 				http.send(res,4,"room is full.");
 			}
 			else if(ret == 2){
+                console.log("can't find room.");
 				http.send(res,3,"can't find room.");
 			}	
 			return;		

@@ -701,6 +701,60 @@ exports.cost_gems = function(userid,cost,callback){
     });
 };
 
+exports.delete_user_info_in_room_table = function (userId, roomId, callback) {
+    callback = callback == null? nop:callback;
+
+    var sql = 'SELECT * FROM t_rooms WHERE id="{0}"'.format(roomId)
+    query(sql, function(err, rows, fields) {
+        if(err){
+            // console.log(err);
+            callback(false);
+            logger.error(err);
+            // return;
+        }
+        else{
+
+            if(rows && rows.length > 0){
+                var row = rows[0];
+                var sql1 = '';
+                if(row.user_id0 == userId){
+                    sql1 = 'UPDATE t_rooms SET user_id0 = 0, user_name0 = null, user_score0 = 0, user_icon0 = null WHERE id = "' + roomId + '"';
+                }
+                else if(row.user_id1 == userId){
+                    sql1 = 'UPDATE t_rooms SET user_id1 = 0, user_name1 = null, user_score1 = 0, user_icon1 = null WHERE id = "' + roomId + '"';
+                }
+                else if(row.user_id2 == userId){
+                    sql1 = 'UPDATE t_rooms SET user_id2 = 0, user_name2 = null, user_score2 = 0, user_icon2 = null WHERE id = "' + roomId + '"';
+                }
+                else if(row.user_id3 == userId){
+                    sql1 = 'UPDATE t_rooms SET user_id3 = 0, user_name3 = null, user_score3 = 0, user_icon3 = null WHERE id = "' + roomId + '"';
+                }
+                if(sql1 == ''){
+                    logger.error(`There is no row(userId: ${userId}) in t_rooms.`, roomId);
+                    callback(false);
+                    return;
+                }
+                query(sql1, function(err1, rows1, fields1) {
+                    if (err1) {
+                        // console.log(err);
+                        callback(false);
+                        logger.error(err1);
+                        // return;
+                    }
+                    else {
+                        callback(true);
+                    }
+                });
+            }
+            else{
+                logger.error(`There is no row(roomId: ${roomId}) in t_rooms.`, roomId);
+                callback(false);
+            }
+
+        }
+    });
+};
+
 exports.set_room_id_of_user = function(userId,roomId,roomIdToRemove,callback){
     callback = callback == null? nop:callback;
     if(roomId != null){
@@ -1919,6 +1973,34 @@ exports.dealer_add = function(add_data, register_dealer_id, callback){
 
     var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified, register_dealer_id,dealer_type) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7}, {8}, {9})";
     sql = sql.format(add_data.name, add_data.password, 1, add_data.region, add_data.phone_number, add_data.weixin_id, Date.now() / 1000, Date.now() / 1000, register_dealer_id, add_data.dealer_type);
+
+    query(sql,function(err,rows,fields){
+        if(err){
+            callback(null);
+            logger.log( err);
+            throw err;
+        }
+        else{
+            callback(rows);
+        }
+    });
+};
+
+exports.dealer_update = function(add_data, id, callback){
+    callback = callback == null? nop:callback;
+
+    if(id == null || add_data.name == null || add_data.password == null){
+        callback(null);
+        return;
+    }
+
+    add_data.name = crypto.toBase64(add_data.name);
+    add_data.weixin_id = crypto.toBase64(add_data.weixin_id);
+
+    var sql = "UPDATE t_managers SET name = '{0}',password='{1}',region_of_dealer='{2}',phone_number='{3}', weixin_id='{4}', dealer_type={5} WHERE id = {6}";
+
+    // var sql = "INSERT INTO t_managers(name, password, level, region_of_dealer, phone_number, weixin_id, date_created, date_modified, register_dealer_id,dealer_type) VALUES('{0}','{1}',{2},'{3}','{4}','{5}',{6}, {7}, {8}, {9})";
+    sql = sql.format(add_data.name, add_data.password, add_data.region, add_data.phone_number, add_data.weixin_id, add_data.dealer_type, id);
 
     query(sql,function(err,rows,fields){
         if(err){

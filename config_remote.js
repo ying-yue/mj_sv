@@ -35,7 +35,7 @@ exports.account_server = function(){
         DEALDER_API_IP:LOCAL_IP,
         DEALDER_API_PORT:12581,
         VERSION:'20161227',
-        APP_WEB:'http://39.106.27.41/mahjongAppDownload/link.htm',
+        APP_WEB:'https://fir.im/ftbj',
     };
 };
 
