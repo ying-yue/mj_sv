@@ -120,6 +120,8 @@ exports.start = function(config,mgr){
 			//玩家上线，强制设置为TRUE
 			// socket.gameMgr.setReady(userId);
 
+
+
 			socket.emit('login_finished');
 
 

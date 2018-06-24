@@ -872,7 +872,7 @@ function process_hu(userId) {
                     Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
                 }
                 else if(seatData.canQingYiseTing){
-                    fan *= 4;
+                    fan *= 2;
 
                     Logger.log(`beijing mahjong = true ----- no QingYiseTing`, roomId);
                     Logger.log(`fan *= 4; (fan = ${fan})`, roomId);
@@ -893,31 +893,41 @@ function process_hu(userId) {
 
 
     if(seatData.huedByQidui){
-        if(game.conf.qidui4){
-            fan *= 4;
+        if(game.conf.mahjongtype == 0) { // 베이징마장일때
+            fan *= 2;
 
-            Logger.log(`huedByQidui = true ----- game.conf.qidui4 = true`, roomId);
-            Logger.log(`fan *= 4; (fan = ${fan})`, roomId);
+            Logger.log(`beijing = true ----- qidui = true`, roomId);
+            Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
         }
-        else if(game.conf.qidui8){
-            fan *= 8;
+        else{
+            if(game.conf.qidui4){
+                fan *= 4;
 
-            Logger.log(`huedByQidui = true ----- game.conf.qidui8 = true`, roomId);
-            Logger.log(`fan *= 8; (fan = ${fan})`, roomId);
-        }
+                Logger.log(`huedByQidui = true ----- game.conf.qidui4 = true`, roomId);
+                Logger.log(`fan *= 4; (fan = ${fan})`, roomId);
+            }
+            else if(game.conf.qidui8){
+                fan *= 8;
 
-        // 먼저 커팅을 할때 2배 해주었으므로 치뚜이로 <후> 하였을 때 2로 나누어준다.
-        // 왜냐하면 치뚜이로 후를 하였을때에는 커팅배수를 곱해주지 않고 그냥 4 혹은 8배 해주어야 하기때분이다.
-        // fan /= 2;
-        //////////////////////////
+                Logger.log(`huedByQidui = true ----- game.conf.qidui8 = true`, roomId);
+                Logger.log(`fan *= 8; (fan = ${fan})`, roomId);
+            }
 
-        for(let kk in seatData.countMap){
-            if(seatData.countMap[kk] == 4){
-                fan *= 2;
-                Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
-                Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+            // 먼저 커팅을 할때 2배 해주었으므로 치뚜이로 <후> 하였을 때 2로 나누어준다.
+            // 왜냐하면 치뚜이로 후를 하였을때에는 커팅배수를 곱해주지 않고 그냥 4 혹은 8배 해주어야 하기때분이다.
+            // fan /= 2;
+            //////////////////////////
+
+            for(let kk in seatData.countMap){
+                if(seatData.countMap[kk] == 4){
+                    fan *= 2;
+                    Logger.log(`huedByQidui = true ----- same pai is 4.`, roomId);
+                    Logger.log(`fan *= 2; (fan = ${fan})`, roomId);
+                }
             }
         }
+
+
 
         // if(game.chuPai != -1){
         //     if(seatData.countMap[game.chuPai] == 4){
@@ -1025,10 +1035,12 @@ function process_hu(userId) {
     // 그래서 짱의 점수는 <baseScore * fan * 2> 로 된다.
 
     if(isZimo) {
-        fan /= 2;
+        if(game.conf.mahjongtype != 0) { // 연변마장일때
+            fan /= 2;
 
-        Logger.log(`---------- starting score in case of zimo ----------`, roomId);
-        Logger.log(`fan /= 2; (fan = ${fan})`, roomId);
+            Logger.log(`---------- starting score in case of zimo ----------`, roomId);
+            Logger.log(`fan /= 2; (fan = ${fan})`, roomId);
+        }
 
         for(let otherSeat of game.gameSeats){
             if(otherSeat.seatIndex == seatData.seatIndex){
@@ -1156,7 +1168,7 @@ function process_gang_ting(userId, data) {
         resultPais = data['data'];
     }
 
-    if(seatData.countMap[resultPais[0]] == 3){
+    if(!(resultPais.length > 3 && game.ZhungID == resultPais[0] && game.BalID == resultPais[1] && game.BaiID == resultPais[2]) && seatData.countMap[resultPais[0]] == 3){
         resultPais.pop();
     }
 
@@ -1624,10 +1636,17 @@ function checkCanHu(game,seatData,targetPai) {
     // }
     seatData.canHu = false;
 
-    // 손에 14개의 패가 다 있으면 팅을 해야 후할수 있다.
-    if(seatData.holds.length == 14 && !isTinged(seatData)){
-        return;
+    // 연변마장일때만 손에 14개의 패가 다 있으면 팅을 해야 후할수 있다.
+    // 베이징마장일때는 손에 14개의 패가 다 있을때 팅을 하지않고도 후를 할수 있다.
+    if(game.conf.mahjongtype != 0) { // 연변마장일때
+        // 손에 14개의 패가 다 있으면 팅을 해야 후할수 있다.
+        if(seatData.holds.length == 14 && !isTinged(seatData)){
+            return;
+        }
     }
+
+
+
 
     // // 손에 동서남북 혹은 백발중중 등이 있으면 먼저 깡을 해야 후 할수 있다.
     // if(checkIsExistingFengpaiOrSanyuanpai(seatData)){
@@ -1654,7 +1673,8 @@ function checkCanHu(game,seatData,targetPai) {
                             }
                             if(seatData.game.conf.renshu == 3 && checkParams.isExistingOneOrNine){
                                 if (checkCanHuForPeng4(seatData, targetPai, data.arrayPengForPiaoHu, null, null, true)) {
-                                    seatData.canPiaoTing = false;
+                                    if(game.turn != seatData.seatIndex)
+                                        seatData.canPiaoTing = false;
                                     seatData.canHu = true;
                                 }
                                 else{
@@ -1664,7 +1684,8 @@ function checkCanHu(game,seatData,targetPai) {
                             else {
                                 if (checkParams.isExistingPing && checkParams.isExistingTiao && checkParams.isExistingWan && checkParams.isExistingOneOrNine) {
                                     if (checkCanHuForPeng4(seatData, targetPai, data.arrayPengForPiaoHu, null, null, true)) {
-                                        seatData.canPiaoTing = false;
+                                        if(game.turn != seatData.seatIndex)
+                                            seatData.canPiaoTing = false;
                                         seatData.canHu = true;
                                     }
                                     else{
@@ -1673,8 +1694,11 @@ function checkCanHu(game,seatData,targetPai) {
 
                                 }
                                 else if (game.conf.yise && checkYise(seatData, checkParams.isExistingPing, checkParams.isExistingTiao, checkParams.isExistingWan, checkParams.isExistingOneOrNine, null, checkParams.isOnlyFeng)) {
-                                    seatData.canQingYiseTing = false;
-                                    seatData.canHunYiseTing = false;
+                                    if(game.turn != seatData.seatIndex){
+                                        seatData.canQingYiseTing = false;
+                                        seatData.canHunYiseTing = false;
+                                    }
+
 
                                     game.huedByQingyise = true;
                                     game.huedByHunyise = true;
@@ -1707,10 +1731,13 @@ function checkCanHu(game,seatData,targetPai) {
             }
 
         }
-        seatData.canHunYiseTing = false;
-        seatData.canQingYiseTing = false;
-        seatData.canTing = false;
-        seatData.canPiaoTing = false;
+        if(game.turn != seatData.seatIndex){
+            seatData.canHunYiseTing = false;
+            seatData.canQingYiseTing = false;
+            seatData.canTing = false;
+            seatData.canPiaoTing = false;
+        }
+
         return;
     }
 
@@ -1995,12 +2022,35 @@ function checkTingCondition(seatData, a_pais){
             isExistingPing = true;
             isOnlyFeng = true;
         }
+
+        if(seatData.game.conf.mahjongtype == 0){
+            if(existingFlowerCount(isExistingWan, isExistingTiao, isExistingPing) > 1){
+                isExistingWan = true;
+                isExistingTiao = true;
+                isExistingPing = true;
+            }
+
+        }
     }
+
+
 
 
 
     return {isExistingWan: isExistingWan, isExistingPing: isExistingPing,
         isExistingTiao:isExistingTiao, isExistingOneOrNine:isExistingOneOrNine, isOnlyFeng: isOnlyFeng};
+}
+
+function existingFlowerCount(isExistingWan, isExistingTiao, isExistingPing) {
+    var count = 0;
+    if(isExistingWan)
+        count++;
+    if(isExistingTiao)
+        count++;
+    if(isExistingPing)
+        count++;
+    return count;
+
 }
 
 function guoHu(game, seatData){
@@ -2194,6 +2244,11 @@ function calcSelfFan(seatData, otherSeat, isQidui) {
     if(!isQidui){
         if(seatData.isKeTing || otherSeat.isKeTing){
             fan_ke = 2;
+            if(game.conf.mahjongtype == 0) { // 베이징마장일때
+                if(seatData.isKeTing && otherSeat.isKeTing){
+                    fan_ke = 4;
+                }
+            }
             Logger.log(`seatData.isKeTing=${seatData.isKeTing} otherSeat.isKeTing=${otherSeat.isKeTing} fan_ke: ${fan_ke}`, roomId);
         }
         // if((seatData.gangTinged && (seatData.holds.length == 10 || seatData.holds.length == 11)) ||
@@ -2423,7 +2478,7 @@ function calcScoreByBaibalzhungSanwanpaiGang(game, seatData, gangPais){
     /////////////////////////////////////////////////////////
 
     if(game.conf.hongdian && game.dice_paly_result){
-        fan = 2;
+        fan *= 2;
 
         Logger.log(`------ hongdian = true `, roomId);
         Logger.log(`fan *= 2  : fan = ${fan}*`, roomId);
@@ -3676,9 +3731,10 @@ function sendOperations(game,seatData,pai) {
         //     seatData.canGangBaiBalZung = false;
         //     seatData.canGangTongnansebei = false;
         // }
-
-        if(!isTinged(seatData) && (seatData.holds.length == 13 || seatData.holds.length == 14)){
-            seatData.canHu = false;
+        if(game.conf.mahjongtype != 0) { // 연변마장일때
+            if (!isTinged(seatData) && (seatData.holds.length == 13 || seatData.holds.length == 14)) {
+                seatData.canHu = false;
+            }
         }
 
 
@@ -3903,7 +3959,7 @@ function doUserMoPai(game){
                     for(let k in turnSeat.tingMap) {
                         if (turnSeat.tingMap.hasOwnProperty(k)) {
                             if (parseInt(k) == parseInt(turnSeat.gangPai[turnSeat.gangPai.length - 1])) {
-                                delete turnSeat.tingMap[k];
+                                // delete turnSeat.tingMap[k];
                                 f = true;
                                 break;
                             }
@@ -5822,8 +5878,22 @@ exports.chuPai = function(userId,pai){
         if(hasOperations(ddd)){
             sendOperations(game,ddd,game.chuPai);
             hasActions = true;
+            if(ddd.canHu){
+                game.userIds_with_actions_by_chupai.push([ddd.userId, ACTION_HU]);
+            }
+            else if(ddd.canGangTing){
+                game.userIds_with_actions_by_chupai.push([ddd.userId, ACTION_GANGTINGED]);
+            }
+            else if(ddd.canGang){
+                game.userIds_with_actions_by_chupai.push([ddd.userId, ACTION_GANG]);
+            }
+            else if(ddd.canPeng){
+                game.userIds_with_actions_by_chupai.push([ddd.userId, ACTION_PENG]);
+            }
+            else if(ddd.canShunZi){
+                game.userIds_with_actions_by_chupai.push([ddd.userId, ACTION_SHUNZI]);
+            }
 
-            game.userIds_with_actions_by_chupai.push(ddd.userId);
         }
     }
     /////////////////////////////////////////////////
@@ -6939,11 +7009,25 @@ exports.hu = function(userId){
 
     if(checkWhetherActionsByChupai(seatData)){
         game.action_count_by_chupai++;
-        game.action_data_by_chupai.push(['hu', userId, null]);
-        Logger.error(`game.action_count_by_chupai. ${game.action_count_by_chupai}`, roomId);
-        if(game.action_count_by_chupai == game.userIds_with_actions_by_chupai.length){
+        game.totalCountCanHu--;
+        var isrun = false;
+        if(game.totalCountCanHu == 0){
+            game.action_data_by_chupai.push(['hu', userId, null]);
+            Logger.log(`game.action_count_by_chupai. ${game.action_count_by_chupai}`, roomId);
+            isrun = true;
             process_actions_of_seats_by_chupai(game);
         }
+        else{
+            game.action_data_by_chupai.push(['hu', userId, null]);
+        }
+        if(!isrun){
+            if(game.action_count_by_chupai == game.userIds_with_actions_by_chupai.length){
+                process_actions_of_seats_by_chupai(game);
+            }
+        }
+        // game.action_data_by_chupai.push(['hu', userId, null]);
+        // Logger.log(`game.action_count_by_chupai. ${game.action_count_by_chupai}`, roomId);
+
 
     }
     else{
@@ -6999,9 +7083,32 @@ exports.guo = function(userId){
 
     if(checkWhetherActionsByChupai(seatData)){
         game.action_count_by_chupai++;
-        if(game.action_count_by_chupai == game.userIds_with_actions_by_chupai.length){
-            process_actions_of_seats_by_chupai(game);
+        var new_hu_data = [];
+        if(seatData.canHu){
+            game.totalCountCanHu--;
+            if(game.totalCountCanHu == 0){
+
+                for(var c = 0;c < game.action_data_by_chupai.length; c++){
+                    if(game.action_data_by_chupai[c][0] == 'hu'){
+                        new_hu_data.push(['hu', game.action_data_by_chupai[c][1], null]);
+                    }
+                }
+                if(new_hu_data.length > 0){
+                    game.action_data_by_chupai = new_hu_data;
+                    Logger.log(`game.action_count_by_chupai. ${game.action_count_by_chupai}`, roomId);
+                    process_actions_of_seats_by_chupai(game);
+                }
+
+
+            }
         }
+        if(new_hu_data.length == 0){
+            if(game.action_count_by_chupai == game.userIds_with_actions_by_chupai.length){
+                process_actions_of_seats_by_chupai(game);
+            }
+        }
+
+
 
     }
     else{

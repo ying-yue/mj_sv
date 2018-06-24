@@ -1,6 +1,6 @@
 // var HALL_IP = "120.24.59.70";
-let HALL_IP = "39.106.27.41";
-let GAME_SERVER_IP = "39.106.27.41";
+let HALL_IP = "www.zzbmj.cn";
+let GAME_SERVER_IP = "www.zzbmj.cn";
 // let HALL_IP = "61.147.199.192";
 let HALL_CLIENT_PORT = 9001;
 let HALL_ROOM_PORT = 9002;

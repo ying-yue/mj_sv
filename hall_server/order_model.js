@@ -12,6 +12,7 @@ var OS_CLOSED = 'closed';
 
 var OT_ALIPAY = 'alipay';
 var OT_WEIXIN = 'weixin';
+var OT_APPLE_PAY = 'apple_pay';
 
 exports.OT_ALIPAY = OT_ALIPAY;
 exports.OT_WEIXIN = OT_WEIXIN;
@@ -92,6 +93,9 @@ exports.createOrder = function (goods, user, channel, callback, ip_address) {
         }
         else if (channel == OT_WEIXIN) {
             WxPay.pay(order_id, goods.name, ip_address, order.total_amount, callback);
+        }
+        else if (channel == OT_APPLE_PAY) {
+            callback(null, {'product_id': goods.id, 'user_id': user.userid});
         }
         else {
             return callback(new Error('unsupported_pay_channel'));

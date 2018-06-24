@@ -1387,7 +1387,7 @@ app.get('/user_list',function(req,res){
         ret.data.page_no = page_no;
         ret.data.page_size = page_size;
 
-        db.read_user_list(userData.account, order_by, userId, nickname,level, function(data){
+        db.read_user_list(order_by, userId, name, function(data){
             if (data){
                 ret.data.total_count = data.length;
                 ret.data.page_count = Math.ceil(data.length / page_size);
@@ -1400,9 +1400,8 @@ app.get('/user_list',function(req,res){
                         var temp = {};
 
                         temp = data[startNo + i];
-                        temp.createdate = fromIntToDateString(temp.createdate);
-                        temp.onlinedate = fromIntToDateString(temp.onlinedate);
-                        temp.name = (temp.lv == 4) ? "管理者" : temp.name;
+                        temp.account_create_datetime = fromIntToDateString(temp.account_create_datetime);
+                        temp.last_login_datetime = fromIntToDateString(temp.last_login_datetime);
 
                         ret.data.list.push(temp);
                     }
@@ -1443,46 +1442,42 @@ app.get('/user_detail',function(req,res){
             return;
         }
 
-        var userData = data[0];
+        // var userData = data[0];
+        //
+        // if (userId == "" ) {
+        //     userId = userData.userid;
+        // }
 
-        if (userId == "" ) {
-            userId = userData.userid;
-        }
+        db.read_user_info(userId, function(data){
+            ret.msg = "操作失败";
+            if (data && data.length > 0){
+                var data = data[0];
 
-        if (userData.isvalid != 0 && userData.lv != 0){//没封闭，也能登录到后台的账号？
-            db.read_user_info(userId, function(data){
-                ret.msg = "操作失败";
-                if (data && data.length > 0){
-                    var data = data[0];
+                ret.code = 0;
+                ret.msg = "操作成功";
 
-                    ret.code = 0;
-                    ret.msg = "操作成功";
+                // if (data.userid != userData.userid && userData.lv == 1){//初级管理者
+                //     if (data.lv != 0){
+                //         data.id = "*****";
+                //         data.pwd = "*****";
+                //     }
+                //     else {
+                //         data.id = "";
+                //         data.pwd = "";
+                //     }
+                //
+                //     if (data.roomid != "")
+                //         data.roomid = "*****";
+                //
+                //     data.account = "*****";
+                // }
+                //
+                // data.name = data.lv==4 ? "管理者":data.name;
+                ret.data = data;
+            }
 
-                    if (data.userid != userData.userid && userData.lv == 1){//初级管理者
-                        if (data.lv != 0){
-                            data.id = "*****";
-                            data.pwd = "*****";
-                        }
-                        else {
-                            data.id = "";
-                            data.pwd = "";
-                        }
-
-                        if (data.roomid != "")
-                            data.roomid = "*****";
-
-                        data.account = "*****";
-                    }
-
-                    data.name = data.lv==4 ? "管理者":data.name;
-                    ret.data = data;
-                }
-
-                send(res,ret);
-            });
-        }
-        else
             send(res,ret);
+        });
     });
 });
 

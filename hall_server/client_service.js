@@ -65,6 +65,7 @@ app.get('/login',function(req,res){
 			ip:ip,
 			sex:data.sex,
 		};
+        db.update_user_last_login(data.userid);
 
 		db.get_room_id_of_user(data.userid,function(roomId){
 			//如果用户处于房间中，则需要对其房间进行检查。 如果房间还在，则通知用户进入
@@ -399,11 +400,6 @@ app.get('/is_server_online',function(req,res){
 	}); 
 });
 
-
-
-
-
-
 var apiBuyGoods = function (req, res) {
     db.get_user_data(req.query.account, function (user) {
         if (!user) {
@@ -411,13 +407,42 @@ var apiBuyGoods = function (req, res) {
             return ;
         }
 
-        db.get_goods(parseInt(req.query.targetItem), function(goods){
+        var channel = "weixin";
+
+        db.get_goods(parseInt(req.query.targetItem), channel, function(goods){
             if(!goods){
                 http.send(res, 2, "failed to get good!");
                 return;
             }
 
-            var channel = "weixin";
+            order_model.createOrder(goods, user, channel, function (err, order_info) {
+                if (err) {
+                    //this case err argument represent order_id
+                    db.update_order_results_by_order_id(err, order_model.OS_REQUEST_FAIL);
+                    http.send(res, 3, "error", err);
+                }
+                else {
+                    http.send(res, 0, "ok", order_info);
+                }
+            }, req.ip.replace("::ffff:", ""));
+            // });
+        });
+    });
+};
+
+var apiBuyGoodsByApplePay = function (req, res) {
+    db.get_user_data(req.query.account, function (user) {
+        if (!user) {
+            http.send(res, 1, "failed to get user data!");
+            return ;
+        }
+        var channel = "apple_pay";
+
+        db.get_goods(parseInt(req.query.targetItem), channel, function(goods){
+            if(!goods){
+                http.send(res, 2, "failed to get good!");
+                return;
+            }
 
             order_model.createOrder(goods, user, channel, function (err, order_info) {
                 if (err) {
@@ -451,6 +476,7 @@ app.get('/get_unfull_room',function(req, res){
 
 
 app.get('/api/buy_goods', apiBuyGoods);
+app.get('/api/buy_goods_by_apple_pay', apiBuyGoodsByApplePay);
 app.post('/weixin/WxPay_notify', WxPay.notify);
 
 exports.start = function($config){

@@ -452,8 +452,8 @@ exports.create_user = function(account,name,coins,gems,sex,headimg,callback){
     }
     // name = "충구기\xF0\x9F\x8E\xB4";
     name = crypto.toBase64(name);
-    var sql = 'INSERT INTO t_users(account,name,coins,gems,sex,headimg,history) VALUES("{0}","{1}",{2},{3},{4},{5},"")';
-    sql = sql.format(account,name,coins,gems,sex,headimg);
+    var sql = 'INSERT INTO t_users(account,name,coins,gems,sex,headimg,history,account_create_datetime,last_login_datetime) VALUES("{0}","{1}",{2},{3},{4},{5},"","{6}","{6}")';
+    sql = sql.format(account,name,coins,gems,sex,headimg,Math.ceil(Date.now() / 1000));
     // console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
@@ -560,8 +560,29 @@ exports.update_user_info = function(userid,name,headimg,sex,callback){
         headimg = 'null';
     }
     name = crypto.toBase64(name);
-    var sql = 'UPDATE t_users SET name="{0}",headimg={1},sex={2} WHERE account="{3}"';
-    sql = sql.format(name,headimg,sex,userid);
+    var sql = 'UPDATE t_users SET name="{0}",headimg={1},sex={2}, last_login_datetime="{4}" WHERE account="{3}"';
+    sql = sql.format(name,headimg,sex,userid,Math.ceil(Date.now() / 1000));
+    // console.log(sql);
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.error(err);
+            return;
+            // throw err;
+        }
+        callback(rows);
+    });
+};
+
+exports.update_user_last_login = function(userid,callback){
+    callback = callback == null? nop:callback;
+    if(userid == null){
+        callback(null);
+        return;
+    }
+
+    var sql = 'UPDATE t_users SET last_login_datetime="{0}" WHERE userid="{1}"';
+    sql = sql.format(Math.ceil(Date.now() / 1000), userid);
     // console.log(sql);
     query(sql, function(err, rows, fields) {
         if (err) {
@@ -1334,7 +1355,7 @@ exports.update_game_result = function(room_uuid,index,result,callback){
     });
 };
 
-exports.get_goods = function(gems, callback){
+exports.get_goods = function(gems, channel, callback){
     callback = callback == null? nop:callback;
 
     if(gems == null){
@@ -2654,6 +2675,70 @@ exports.close_room = function (create_dealer_id, roomId, callback) {
         }
     });
 
+};
+
+exports.read_user_list = function(order_by, id, name, callback){
+    callback = callback == null? nop:callback;
+
+    if(id == null){
+        callback(null);
+        return;
+    }
+    name = crypto.toBase64(name);
+
+    var sql = 'SELECT * from t_users ';
+    var firstFlag = true;
+
+    if(id != ''){
+        sql += 'WHERE userid = "{0}" ';
+        sql = sql.format(id);
+        firstFlag = false;
+    }
+
+    if(name != ''){
+        if(firstFlag){
+            sql += 'WHERE name = "{0}" ';
+            sql = sql.format(name);
+        }
+        else{
+            sql += ', name = "{0}" ';
+            sql = sql.format(name);
+        }
+
+        firstFlag = false;
+    }
+
+    sql += 'order by {0}';
+    sql = sql.format(order_by);
+
+    // if(id == ''){
+    //     sql = 'SELECT * from t_users '
+    //         + 'order by {0} ';
+    //     sql = sql.format(order_by);
+    // }
+    // else{
+    //     sql = 'SELECT * from t_users '
+    //         + 'WHERE id = "{0}" order by {1} ';
+    //     sql = sql.format(id, order_by);
+    // }
+
+    logger.log( sql);
+
+    query(sql, function(err, rows, fields) {
+        if (err) {
+            callback(null);
+            logger.log(err);
+            throw err;
+        }
+
+        for(var i = 0; i < rows.length; ++i){
+            var row = rows[i];
+            if(row.name != null && row.name != '')
+                rows[i].name = crypto.fromBase64(rows[i].name);
+        }
+
+        callback(rows);
+    });
 };
 
 
